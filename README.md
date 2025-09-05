@@ -1,14 +1,39 @@
-# Skynet Oracle Optimized Deployment
+# Skynet Oracle Cloud Deployment
 
-Optimized version of Skynet India website for Oracle Cloud Free Tier deployment (24GB RAM, 4 ARM cores, 200GB storage).
+Optimized deployment for Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores, 200GB Storage).
 
-## 🚀 Features
+## 🚀 Quick Start
 
-- **Optimized for ARM**: Configured specifically for Oracle's ARM architecture
-- **Local Storage**: Uses Oracle's 200GB storage instead of Cloudinary
-- **High Performance**: Utilizes 24GB RAM effectively
-- **PM2 Clustering**: Multi-core support for better performance
-- **Zero Cost**: Runs entirely on Oracle's free tier
+```bash
+# Clone repository
+git clone https://github.com/yourusername/skynet-oracle-optimized.git
+cd skynet-oracle-optimized
+
+# Run deployment
+chmod +x deploy.sh
+./deploy.sh full
+```
+
+## 📋 Features
+
+- **Native ARM Deployment** - Optimized for Oracle's ARM architecture
+- **Local Storage** - No external dependencies (Cloudinary removed)
+- **Production Ready** - PM2 clustering, Nginx proxy, PostgreSQL
+- **Resource Efficient** - Uses only 3-4GB RAM of 24GB available
+- **Single Script** - One command deployment with `deploy.sh`
+
+## 🔧 Deployment Modes
+
+```bash
+# Full deployment (environment + application)
+./deploy.sh full
+
+# Environment setup only
+./deploy.sh env-only
+
+# Application deployment only (requires env files)
+./deploy.sh deploy-only
+```
 
 ## 📁 Project Structure
 
@@ -16,136 +41,51 @@ Optimized version of Skynet India website for Oracle Cloud Free Tier deployment 
 skynet-oracle-optimized/
 ├── skynet-revamp/       # Next.js frontend
 ├── skynet-cms/          # Strapi CMS
-├── oracle-deploy.sh     # One-click deployment script
-├── ecosystem.config.js  # PM2 configuration
-├── .env.example        # Environment template
-└── README.md           # This file
-```
-
-## 🛠️ Quick Deployment
-
-### Prerequisites
-
-- Oracle Cloud Free Tier Ubuntu instance (ARM)
-- SSH access to your Oracle server
-- Domain name (optional)
-
-### Step 1: Clone Repository
-
-```bash
-git clone https://github.com/yourusername/skynet-oracle-optimized.git
-cd skynet-oracle-optimized
-```
-
-### Step 2: Copy to Oracle Server
-
-```bash
-scp -r * ubuntu@your-oracle-ip:~/
-```
-
-### Step 3: SSH and Deploy
-
-```bash
-ssh ubuntu@your-oracle-ip
-chmod +x oracle-deploy.sh
-./oracle-deploy.sh
-```
-
-## 🔧 Manual Setup
-
-### 1. Install Dependencies
-
-```bash
-sudo apt update
-sudo apt install -y nodejs npm postgresql nginx
-npm install -g pm2
-```
-
-### 2. Setup Database
-
-```bash
-sudo -u postgres createdb skynet_db
-sudo -u postgres createuser skynet -P
-```
-
-### 3. Configure Environment
-
-Copy `.env.example` to appropriate locations and update values.
-
-### 4. Build Applications
-
-```bash
-# CMS
-cd skynet-cms
-npm install
-npm run build
-
-# Frontend
-cd ../skynet-revamp
-npm install
-npm run build
-```
-
-### 5. Start with PM2
-
-```bash
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
+├── deploy.sh            # All-in-one deployment script
+├── DEPLOY_GUIDE.md      # Comprehensive deployment guide
+└── README.md            # This file
 ```
 
 ## 📊 Resource Usage
 
-- **RAM**: ~3GB (21GB free for scaling)
-- **CPU**: 2 cores for frontend, 1 for CMS, 1 spare
-- **Storage**: ~2GB for app, 198GB available for uploads
+| Resource | Usage | Available |
+|----------|-------|-----------|
+| **RAM** | 3-4GB | 24GB |
+| **CPU** | 2 cores | 4 cores |
+| **Storage** | ~150MB + uploads | 200GB |
 
-## 🌐 Access Points
+## 🔗 Access URLs
 
-- Frontend: `http://your-server-ip`
-- CMS Admin: `http://your-server-ip/admin`
-- API: `http://your-server-ip/api`
+After deployment:
+- **Frontend**: `http://YOUR_SERVER_IP`
+- **CMS Admin**: `http://YOUR_SERVER_IP/admin`
+- **API**: `http://YOUR_SERVER_IP/api`
 
-## 🔒 Security
+## 📖 Documentation
 
-1. Configure firewall:
-```bash
-sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-```
+See [DEPLOY_GUIDE.md](./DEPLOY_GUIDE.md) for:
+- Detailed installation steps
+- Environment configuration
+- Troubleshooting guide
+- Security recommendations
+- Maintenance procedures
 
-2. Setup SSL (optional):
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
-```
-
-## 📈 Monitoring
+## ⚡ Quick Commands
 
 ```bash
-# View processes
+# View status
 pm2 status
 
 # View logs
 pm2 logs
 
+# Restart services
+pm2 restart all
+
 # Monitor resources
 pm2 monit
 ```
 
-## 🔄 Updates
+## 🆘 Support
 
-```bash
-git pull
-npm install
-npm run build
-pm2 reload all
-```
-
-## 📝 License
-
-MIT
-
-## 🤝 Support
-
-For issues, please open a GitHub issue or contact support.
+For detailed troubleshooting and configuration options, refer to the [Deployment Guide](./DEPLOY_GUIDE.md).
