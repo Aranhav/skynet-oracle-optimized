@@ -174,7 +174,7 @@ export default function WorldMapD3Full() {
       `)
 
     // Draw countries
-    const countries = feature(worldData, worldData.objects.countries)
+    const countries = feature(worldData, worldData.objects.countries) as any
 
     svg
       .append("g")
@@ -256,6 +256,7 @@ export default function WorldMapD3Full() {
     return () => {
       window.removeEventListener("resize", updateDimensions)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimensions.width, dimensions.height, worldData])
 
   // Render tooltips

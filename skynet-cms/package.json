@@ -4,17 +4,20 @@
   "version": "2.0.0",
   "description": "Skynet India CMS - Optimized for Oracle",
   "scripts": {
-    "develop": "strapi develop",
-    "start": "strapi start",
-    "build": "strapi build",
-    "strapi": "strapi"
+    "develop": "npx @strapi/strapi develop",
+    "start": "npx @strapi/strapi start",
+    "build": "npx @strapi/strapi build",
+    "strapi": "npx @strapi/strapi"
   },
   "dependencies": {
-    "@strapi/strapi": "4.25.3",
-    "@strapi/plugin-users-permissions": "4.25.3",
-    "@strapi/plugin-i18n": "4.25.3",
-    "pg": "8.11.3",
-    "pg-connection-string": "2.6.2"
+    "@strapi/plugin-users-permissions": "^5.23.3",
+    "@strapi/strapi": "^5.23.3",
+    "pg": "^8.13.1",
+    "pg-connection-string": "^2.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "styled-components": "^6.1.19"
   },
   "author": {
     "name": "Skynet India"
@@ -23,8 +26,8 @@
     "uuid": "skynet-cms-oracle"
   },
   "engines": {
-    "node": ">=18.0.0 <=20.x.x",
-    "npm": ">=6.0.0"
+    "node": ">=20.0.0 <=22.x.x",
+    "npm": ">=10.0.0"
   },
   "license": "MIT"
 }

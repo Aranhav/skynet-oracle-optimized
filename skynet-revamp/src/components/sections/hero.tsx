@@ -70,14 +70,14 @@ export default function HeroSection() {
           >
             <form
               onSubmit={handleTrack}
-              className="flex flex-col sm:flex-row gap-3 p-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl dark:shadow-2xl"
+              className="flex flex-col sm:flex-row gap-3 p-2 rounded-2xl shadow-xl dark:shadow-2xl glass gradient-border"
             >
               <Input
                 type="text"
                 placeholder="Enter your Tracking Numbers"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
-                className="flex-1 h-14 px-6 text-base font-light border-0 bg-gray-50 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="flex-1 h-14 px-6 text-base font-light border-0 bg-muted/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required
               />
               <Button

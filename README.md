@@ -1,4 +1,4 @@
-# Skynet Oracle Cloud Deployment
+# Skynet Oracle Cloud Deployment v2.0
 
 Optimized deployment for Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores, 200GB Storage).
 
@@ -14,13 +14,22 @@ chmod +x deploy.sh
 ./deploy.sh full
 ```
 
+## 🆕 Version 2.0 Improvements
+
+- **Latest Dependencies** - Next.js 15.5+, React 19, Strapi 5.23+, Node.js 20.x LTS
+- **Fixed Build Issues** - Proper dependency management during build process
+- **Enhanced Error Handling** - Better logging and automatic retries
+- **Health Checks** - Service verification before proceeding
+- **Compatibility Validation** - System requirements checking
+
 ## 📋 Features
 
 - **Native ARM Deployment** - Optimized for Oracle's ARM architecture
-- **Local Storage** - No external dependencies (Cloudinary removed)
+- **Latest Tech Stack** - Next.js 15, React 19, Strapi 5, Node.js 20
+- **Local Storage** - No external dependencies (Cloudinary removed)  
 - **Production Ready** - PM2 clustering, Nginx proxy, PostgreSQL
 - **Resource Efficient** - Uses only 3-4GB RAM of 24GB available
-- **Single Script** - One command deployment with `deploy.sh`
+- **Single Script** - One command deployment with comprehensive error handling
 
 ## 🔧 Deployment Modes
 

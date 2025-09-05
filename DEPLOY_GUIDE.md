@@ -13,6 +13,24 @@
   - SSH access to server
   - Basic Linux knowledge
 
+## 🆕 What's New (Version 2.0)
+
+This deployment now includes major upgrades for better stability and performance:
+
+### ✅ Updated Dependencies
+- **Next.js 15.5+** - Latest stable version with React 19 support
+- **React 19.1.0+** - Latest stable with new features and performance improvements
+- **Strapi 5.23.2+** - Latest stable with TypeScript support and improved API
+- **Node.js 20.x LTS** - Required for all latest dependencies
+- **ESLint 9.x** - Updated linting with modern rules
+
+### ✅ Improved Deployment Process
+- **Fixed Build Issues** - No more `--production` flag during build phase
+- **Better Error Handling** - Comprehensive error messages and logging
+- **Health Checks** - Services are verified to be running before proceeding
+- **Compatibility Checks** - Validates system requirements before deployment
+- **Automatic Retries** - Fallback options for npm installation failures
+
 ## 🎯 Quick Start
 
 ### 1. Clone Repository
@@ -88,11 +106,15 @@ This will:
 ./deploy.sh deploy-only
 ```
 This will:
-- Install Node.js, PostgreSQL, Nginx
-- Setup database
-- Build and deploy both frontend and CMS
-- Configure PM2 process manager
+- Install Node.js 20.x LTS, PostgreSQL, Nginx
+- Check system compatibility and requirements
+- Setup database with proper credentials
+- Install all dependencies (including devDependencies for building)
+- Build both frontend and CMS with error handling
+- Prune devDependencies after build for optimization
+- Configure PM2 process manager with health checks
 - Setup Nginx reverse proxy
+- Verify all services are running correctly
 
 ## 🔐 Post-Deployment Setup
 
@@ -303,18 +325,26 @@ sudo systemctl restart nginx
 cd /home/ubuntu/skynet
 git pull origin main
 
-# Rebuild frontend
+# Rebuild frontend (with proper dependency installation)
 cd /var/www/skynet/frontend
-npm install
-npm run build
+npm ci --no-audit --no-fund  # Install all dependencies including devDependencies
+npm run build                # Build the application
+npm prune --production       # Remove devDependencies after build
 pm2 restart skynet-frontend
 
-# Rebuild CMS
+# Rebuild CMS (with proper dependency installation)
 cd /var/www/skynet/cms
-npm install
-npm run build
+npm ci --no-audit --no-fund  # Install all dependencies
+npm run build                # Build Strapi
+npm prune --production       # Remove devDependencies after build
 pm2 restart skynet-cms
 ```
+
+### ⚠️ Important Build Notes
+- **Always install all dependencies** (including devDependencies) before building
+- **Never use `--production` flag** during the build phase
+- **Prune devDependencies** after building for production optimization
+- **Use `npm ci`** for faster, reliable installs from package-lock.json
 
 ### Backup Data
 ```bash

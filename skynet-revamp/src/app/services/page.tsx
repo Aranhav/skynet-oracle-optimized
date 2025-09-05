@@ -9,7 +9,7 @@ import FAQSection from "@/components/common/FAQSection"
 
 // Icon helper function
 function getIcon(iconName: string) {
-  const icon = Icons[getServiceIconName(iconName) as keyof typeof Icons]
+  const icon = Icons[getServiceIconName(iconName) as keyof typeof Icons] as any
   return icon || Icons.Package
 }
 

@@ -22,7 +22,7 @@ export default function BlogPostPage() {
   const slug = params.slug as string
   
   const [post, setPost] = useState<BlogPost | null>(null)
-  const [relatedPosts, setRelatedPosts] = useState<BlogPost[]>([])
+  const [relatedPosts, setRelatedPosts] = useState<(BlogPost & { id: number })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -217,8 +217,8 @@ export default function BlogPostPage() {
               <div className="max-w-6xl mx-auto">
                 <h2 className="text-3xl font-light mb-8">Related Articles</h2>
                 <div className="grid md:grid-cols-3 gap-8">
-                  {relatedPosts.map((relatedPost) => (
-                    <BlogCard key={relatedPost.id} post={relatedPost} />
+                  {relatedPosts.map((relatedPost, index) => (
+                    <BlogCard key={index} post={relatedPost} />
                   ))}
                 </div>
               </div>

@@ -102,7 +102,9 @@ export default function Header() {
     <header
       className={cn(
         "fixed top-0 z-50 w-full transition-all duration-500",
-        isScrolled ? "border-b shadow-sm backdrop-blur-xl bg-background/95" : "backdrop-blur-md bg-background/10",
+        isScrolled
+          ? "border-b shadow-sm backdrop-blur-xl bg-gradient-to-b from-background/95 to-background/85"
+          : "backdrop-blur-md bg-gradient-to-b from-background/70 to-background/40",
       )}
     >
       <nav className="container flex justify-between items-center h-16">
@@ -116,13 +118,13 @@ export default function Header() {
           <NavigationMenuList>
             {navigation.map((item) => (
               <NavigationMenuItem key={item.name}>
-                {item.children ? (
+                {'children' in item ? (
                   <>
                     <NavigationMenuTrigger className="text-sm font-light">{item.name}</NavigationMenuTrigger>
                     <NavigationMenuContent className="border shadow-xl backdrop-blur-xl bg-background/95 border-border/20">
                       <ul className="grid w-[400px] gap-3 p-4 md:w-[600px] md:grid-cols-2">
-                        {item.children.map((child) => {
-                          const IconComponent = child.icon ? Icons[getServiceIconName(child.icon) as keyof typeof Icons] : Icons.Package
+                        {'children' in item && item.children.map((child) => {
+                          const IconComponent = (child.icon ? Icons[getServiceIconName(child.icon) as keyof typeof Icons] : Icons.Package) as any
                           return (
                             <li key={child.name}>
                               <NavigationMenuLink asChild>
@@ -217,14 +219,14 @@ export default function Header() {
               <ul className="space-y-2">
                 {navigation.map((item) => (
                   <li key={item.name}>
-                    {item.children ? (
+                    {'children' in item ? (
                       <details className="group">
                         <summary className="flex justify-between items-center px-3 py-2 text-sm font-medium rounded-lg cursor-pointer hover:bg-accent hover:text-accent-foreground">
                           {item.name}
                           <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                         </summary>
                         <ul className="pl-6 mt-2 space-y-1">
-                          {item.children.map((child) => (
+                          {'children' in item && item.children.map((child) => (
                             <li key={child.name}>
                               <Link
                                 href={child.href}

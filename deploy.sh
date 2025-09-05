@@ -62,6 +62,65 @@ check_architecture() {
     fi
 }
 
+check_compatibility() {
+    echo -e "${YELLOW}Checking system compatibility...${NC}"
+    
+    # Check OS
+    if ! command -v apt-get &> /dev/null; then
+        echo -e "${RED}✗ This script requires apt-get (Debian/Ubuntu)${NC}"
+        exit 1
+    fi
+    
+    # Check available memory (Oracle Free Tier has 24GB)
+    MEMORY_GB=$(free -g | awk '/^Mem:/{print $2}')
+    if [ "$MEMORY_GB" -lt 4 ]; then
+        echo -e "${YELLOW}⚠ Warning: Low memory detected (${MEMORY_GB}GB). Minimum 4GB recommended${NC}"
+        echo -n "Continue anyway? (y/n): "
+        read confirm
+        if [ "$confirm" != "y" ]; then
+            exit 1
+        fi
+    else
+        echo -e "${GREEN}✓ Sufficient memory available (${MEMORY_GB}GB)${NC}"
+    fi
+    
+    # Check disk space
+    DISK_SPACE_GB=$(df -BG / | tail -1 | awk '{print $4}' | sed 's/G//')
+    if [ "$DISK_SPACE_GB" -lt 10 ]; then
+        echo -e "${YELLOW}⚠ Warning: Low disk space (${DISK_SPACE_GB}GB free). Minimum 10GB recommended${NC}"
+        echo -n "Continue anyway? (y/n): "
+        read confirm
+        if [ "$confirm" != "y" ]; then
+            exit 1
+        fi
+    else
+        echo -e "${GREEN}✓ Sufficient disk space available (${DISK_SPACE_GB}GB)${NC}"
+    fi
+}
+
+wait_for_service() {
+    local service_name=$1
+    local port=$2
+    local max_attempts=30
+    local attempt=1
+    
+    echo -e "${YELLOW}Waiting for $service_name to start on port $port...${NC}"
+    
+    while [ $attempt -le $max_attempts ]; do
+        if curl -s "http://localhost:$port" >/dev/null 2>&1 || nc -z localhost $port 2>/dev/null; then
+            echo -e "${GREEN}✓ $service_name is responding on port $port${NC}"
+            return 0
+        fi
+        
+        echo -n "."
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    echo -e "\n${RED}✗ $service_name failed to start within $((max_attempts * 2)) seconds${NC}"
+    return 1
+}
+
 # =====================================================
 # ENVIRONMENT SETUP
 # =====================================================
@@ -217,16 +276,38 @@ deploy_application() {
     # Install system dependencies
     echo -e "${YELLOW}Installing system dependencies...${NC}"
     
-    if ! command -v node &> /dev/null; then
+    # Check Node.js version compatibility
+    if command -v node &> /dev/null; then
+        NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
+        if [ "$NODE_VERSION" -lt 20 ]; then
+            echo -e "${YELLOW}Node.js version $NODE_VERSION detected. Upgrading to Node.js 20 LTS...${NC}"
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+        else
+            echo -e "${GREEN}✓ Node.js version $NODE_VERSION is compatible${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Installing Node.js 20 LTS...${NC}"
         curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
         sudo apt-get install -y nodejs
     fi
+    
+    # Verify Node.js installation
+    if ! command -v node &> /dev/null; then
+        echo -e "${RED}✗ Node.js installation failed${NC}"
+        exit 1
+    fi
+    
+    NODE_VERSION=$(node -v)
+    NPM_VERSION=$(npm -v)
+    echo -e "${GREEN}✓ Node.js ${NODE_VERSION} installed${NC}"
+    echo -e "${GREEN}✓ npm ${NPM_VERSION} installed${NC}"
     
     sudo apt-get update
     sudo apt-get install -y postgresql postgresql-contrib nginx git build-essential
     
     if ! command -v pm2 &> /dev/null; then
-        sudo npm install -g pm2
+        sudo npm install -g pm2@latest
     fi
     
     check_status "System dependencies installed"
@@ -264,16 +345,57 @@ EOF
     cd "$DEPLOY_DIR/cms"
     mkdir -p public/uploads
     chmod 755 public/uploads
-    npm install --production
-    npm run build
+    
+    # Install all dependencies (including devDependencies for building)
+    echo -e "${YELLOW}Installing CMS dependencies...${NC}"
+    npm ci --no-audit --no-fund || {
+        echo -e "${RED}✗ CMS npm install failed. Trying with install...${NC}"
+        npm install || {
+            echo -e "${RED}✗ CMS dependency installation failed${NC}"
+            exit 1
+        }
+    }
+    
+    # Build CMS
+    echo -e "${YELLOW}Building CMS...${NC}"
+    npm run build || {
+        echo -e "${RED}✗ CMS build failed${NC}"
+        exit 1
+    }
+    
+    # Optional: Prune devDependencies after build for production optimization
+    echo -e "${YELLOW}Optimizing CMS for production...${NC}"
+    npm prune --production --no-audit --no-fund
+    
     check_status "CMS deployed"
     
     # Deploy Frontend
     echo -e "${YELLOW}Deploying Frontend...${NC}"
     cp -r "$SCRIPT_DIR/$FRONTEND_DIR" "$DEPLOY_DIR/frontend"
     cd "$DEPLOY_DIR/frontend"
-    npm install --production
-    npm run build
+    
+    # Install all dependencies (including devDependencies for building)
+    echo -e "${YELLOW}Installing Frontend dependencies...${NC}"
+    npm ci --no-audit --no-fund || {
+        echo -e "${RED}✗ Frontend npm install failed. Trying with install...${NC}"
+        npm install || {
+            echo -e "${RED}✗ Frontend dependency installation failed${NC}"
+            exit 1
+        }
+    }
+    
+    # Build Frontend
+    echo -e "${YELLOW}Building Frontend...${NC}"
+    npm run build || {
+        echo -e "${RED}✗ Frontend build failed${NC}"
+        echo -e "${YELLOW}Please check the build logs above for errors${NC}"
+        exit 1
+    }
+    
+    # Optional: Prune devDependencies after build for production optimization
+    echo -e "${YELLOW}Optimizing Frontend for production...${NC}"
+    npm prune --production --no-audit --no-fund
+    
     check_status "Frontend deployed"
     
     # Configure Nginx
@@ -334,15 +456,43 @@ EOF
     pm2 stop all 2>/dev/null || true
     pm2 delete all 2>/dev/null || true
     
+    # Start CMS with better error handling
     cd "$DEPLOY_DIR/cms"
-    pm2 start npm --name "skynet-cms" -- start
+    pm2 start npm --name "skynet-cms" -- start || {
+        echo -e "${RED}✗ Failed to start CMS with PM2${NC}"
+        echo -e "${YELLOW}Checking CMS logs...${NC}"
+        pm2 logs skynet-cms --lines 20
+        exit 1
+    }
     
+    # Wait for CMS to be ready
+    wait_for_service "Strapi CMS" 1337 || {
+        echo -e "${RED}✗ CMS health check failed${NC}"
+        echo -e "${YELLOW}CMS logs:${NC}"
+        pm2 logs skynet-cms --lines 50
+        exit 1
+    }
+    
+    # Start Frontend with better error handling  
     cd "$DEPLOY_DIR/frontend"
-    pm2 start npm --name "skynet-frontend" -- start
+    pm2 start npm --name "skynet-frontend" -- start || {
+        echo -e "${RED}✗ Failed to start Frontend with PM2${NC}"
+        echo -e "${YELLOW}Checking Frontend logs...${NC}"
+        pm2 logs skynet-frontend --lines 20
+        exit 1
+    }
+    
+    # Wait for Frontend to be ready
+    wait_for_service "Next.js Frontend" 3000 || {
+        echo -e "${RED}✗ Frontend health check failed${NC}"
+        echo -e "${YELLOW}Frontend logs:${NC}"
+        pm2 logs skynet-frontend --lines 50
+        exit 1
+    }
     
     pm2 save
     pm2 startup systemd -u $USER --hp /home/$USER | grep 'sudo' | bash || true
-    check_status "PM2 services started"
+    check_status "PM2 services started and verified"
     
     # Configure firewall
     echo -e "${YELLOW}Configuring firewall...${NC}"
@@ -378,6 +528,7 @@ case $MODE in
     
     "deploy-only")
         check_architecture
+        check_compatibility
         deploy_application
         
         echo -e "\n${GREEN}==========================================${NC}"
@@ -400,6 +551,7 @@ case $MODE in
     
     "full"|*)
         check_architecture
+        check_compatibility
         setup_environment
         
         echo -e "\n${YELLOW}Environment setup complete. Starting deployment...${NC}\n"

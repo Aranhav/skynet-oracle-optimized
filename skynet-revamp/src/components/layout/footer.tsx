@@ -202,7 +202,7 @@ across India and 209+ countries worldwide.`}
                 <>
                   {/* Display all head offices */}
                   {headOffices.map((office, officeIndex) => (
-                    <div key={office.id} className="space-y-2">
+                    <div key={`office-${officeIndex}`} className="space-y-2">
                       {officeIndex > 0 && <div className="border-t border-muted/20 pt-2" />}
                       
                       {/* Office name if multiple offices */}

@@ -29,7 +29,7 @@ export default function FAQsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [filterOpen, setFilterOpen] = useState(false)
   const [categoryExpanded, setCategoryExpanded] = useState(true)
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
   const [searchLoading, setSearchLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -93,9 +93,9 @@ export default function FAQsPage() {
   }, [searchQuery, categoryFilter, allFaqs])
 
   // Get unique categories from fetched FAQs
-  const categories = ["all", ...new Set(allFaqs.map((faq) => faq.category).filter(Boolean))]
+  const categories = ["all", ...Array.from(new Set(allFaqs.map((faq) => faq.category).filter(Boolean)))]
 
-  const toggleExpanded = (id: number) => {
+  const toggleExpanded = (id: string) => {
     setExpandedItems((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(id)) {
@@ -367,7 +367,7 @@ export default function FAQsPage() {
                   {/* Category Sections */}
                   {categoryFilter === "all"
                     ? // Group by category when showing all
-                      [...new Set(filteredFaqs.map((faq) => faq.category))].sort().map((category) => {
+                      Array.from(new Set(filteredFaqs.map((faq) => faq.category))).sort().map((category) => {
                         const categoryFaqs = filteredFaqs.filter((faq) => faq.category === category)
 
                         if (categoryFaqs.length === 0) return null
@@ -384,7 +384,7 @@ export default function FAQsPage() {
                             <div className="space-y-4">
                               {categoryFaqs.map((faq, index) => (
                                 <motion.div
-                                  key={faq.id}
+                                  key={`${category}-${index}`}
                                   initial={{ opacity: 0, y: 20 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{
@@ -399,7 +399,7 @@ export default function FAQsPage() {
                                   `}
                                   >
                                     <button
-                                      onClick={() => toggleExpanded(faq.id)}
+                                      onClick={() => toggleExpanded(`${category}-${index}`)}
                                       className="w-full p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-2xl"
                                     >
                                       <div className="flex items-start justify-between gap-4">
@@ -407,7 +407,7 @@ export default function FAQsPage() {
                                           <h3 className="text-lg font-light text-primary leading-relaxed mb-1">
                                             {faq.question}
                                           </h3>
-                                          {!expandedItems.has(faq.id) && (
+                                          {!expandedItems.has(`${category}-${index}`) && (
                                             <p className="text-sm text-muted-foreground font-light line-clamp-2">
                                               {parseMarkdownInline(faq.answer)}
                                             </p>
@@ -416,13 +416,13 @@ export default function FAQsPage() {
                                         <div
                                           className={`
                                         w-10 h-10 rounded-full flex items-center justify-center shrink-0
-                                        ${expandedItems.has(faq.id) ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}
+                                        ${expandedItems.has(`${category}-${index}`) ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}
                                         transition-all duration-300
                                       `}
                                         >
                                           <motion.div
                                             animate={{
-                                              rotate: expandedItems.has(faq.id) ? 180 : 0,
+                                              rotate: expandedItems.has(`${category}-${index}`) ? 180 : 0,
                                             }}
                                             transition={{
                                               duration: 0.3,
@@ -431,7 +431,7 @@ export default function FAQsPage() {
                                           >
                                             <ChevronDown
                                               className={`w-5 h-5 transition-colors duration-300 ${
-                                                expandedItems.has(faq.id) ? "text-primary" : "text-muted-foreground"
+                                                expandedItems.has(`${category}-${index}`) ? "text-primary" : "text-muted-foreground"
                                               }`}
                                               strokeWidth={1.5}
                                             />
@@ -441,7 +441,7 @@ export default function FAQsPage() {
                                     </button>
 
                                     <AnimatePresence initial={false}>
-                                      {expandedItems.has(faq.id) && (
+                                      {expandedItems.has(`${category}-${index}`) && (
                                         <motion.div
                                           initial={{ height: 0, opacity: 0 }}
                                           animate={{
@@ -475,7 +475,7 @@ export default function FAQsPage() {
                     : // Show filtered FAQs without category grouping
                       filteredFaqs.map((faq, index) => (
                         <motion.div
-                          key={faq.id}
+                          key={`faq-${index}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.5, delay: index * 0.05 }}
@@ -487,7 +487,7 @@ export default function FAQsPage() {
                           `}
                           >
                             <button
-                              onClick={() => toggleExpanded(faq.id)}
+                              onClick={() => toggleExpanded(`faq-${index}`)}
                               className="w-full p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-2xl"
                             >
                               <div className="flex items-start justify-between gap-4">
@@ -495,7 +495,7 @@ export default function FAQsPage() {
                                   <h3 className="text-lg font-light text-primary leading-relaxed mb-1">
                                     {faq.question}
                                   </h3>
-                                  {!expandedItems.has(faq.id) && (
+                                  {!expandedItems.has(`faq-${index}`) && (
                                     <p className="text-sm text-muted-foreground font-light line-clamp-2">
                                       {parseMarkdownInline(faq.answer)}
                                     </p>
@@ -504,13 +504,13 @@ export default function FAQsPage() {
                                 <div
                                   className={`
                                 w-10 h-10 rounded-full flex items-center justify-center shrink-0
-                                ${expandedItems.has(faq.id) ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}
+                                ${expandedItems.has(`faq-${index}`) ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}
                                 transition-all duration-300
                               `}
                                 >
                                   <motion.div
                                     animate={{
-                                      rotate: expandedItems.has(faq.id) ? 180 : 0,
+                                      rotate: expandedItems.has(`faq-${index}`) ? 180 : 0,
                                     }}
                                     transition={{
                                       duration: 0.3,
@@ -519,7 +519,7 @@ export default function FAQsPage() {
                                   >
                                     <ChevronDown
                                       className={`w-5 h-5 transition-colors duration-300 ${
-                                        expandedItems.has(faq.id) ? "text-primary" : "text-muted-foreground"
+                                        expandedItems.has(`faq-${index}`) ? "text-primary" : "text-muted-foreground"
                                       }`}
                                       strokeWidth={1.5}
                                     />
@@ -529,7 +529,7 @@ export default function FAQsPage() {
                             </button>
 
                             <AnimatePresence initial={false}>
-                              {expandedItems.has(faq.id) && (
+                              {expandedItems.has(`faq-${index}`) && (
                                 <motion.div
                                   initial={{ height: 0, opacity: 0 }}
                                   animate={{ height: "auto", opacity: 1 }}

@@ -227,7 +227,7 @@ export function transformOfficeForUI(office: Office) {
   const hasValidCoordinates = !!(office.coordinates?.lat && office.coordinates?.lng)
 
   return {
-    id: office.id.toString(),
+    id: office.id ? office.id.toString() : "0",
     name: office.name || "Office Location",
     company: office.isHeadOffice ? "Skynet Express India Private Limited" : "SKYNET EXPRESS INDIA P.LTD",
     addresses: office.addresses ? office.addresses.sort((a, b) => a.id - b.id).map((addr) => addr.address) : ["Address not available"],

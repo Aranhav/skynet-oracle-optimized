@@ -12,7 +12,7 @@ import { StrapiData, Service } from "@/lib/strapi-services"
 
 // Icon helper function
 function getIcon(iconName: string) {
-  const icon = Icons[getServiceIconName(iconName) as keyof typeof Icons]
+  const icon = Icons[getServiceIconName(iconName) as keyof typeof Icons] as any
   return icon || Icons.Package
 }
 
@@ -122,7 +122,7 @@ export default function ServicesSection() {
                   return (
                     <div key={`${service.id}-${index}`} className="w-[350px] flex-shrink-0">
                       <Link href={`/services/${service.attributes.slug}`} className="block h-full">
-                        <Card className="group h-[420px] border-0 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden bg-card cursor-pointer">
+                        <Card className="group h-[420px] border-0 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden bg-card cursor-pointer gradient-border">
                           <CardContent className="p-8 h-full flex flex-col">
                             {/* Icon */}
                             <div className="w-14 h-14 rounded-2xl bg-primary/10 p-3 mb-6 group-hover:scale-110 transition-transform duration-300">

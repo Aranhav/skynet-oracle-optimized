@@ -29,7 +29,7 @@ export default function FAQSection({
 }: FAQSectionProps) {
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [loading, setLoading] = useState(true)
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const loadFAQs = async () => {
@@ -40,7 +40,6 @@ export default function FAQSection({
         const validFaqs = data.filter(
           (faq) =>
             faq &&
-            faq.id &&
             faq.question &&
             faq.answer &&
             typeof faq.question === "string" &&
@@ -58,7 +57,7 @@ export default function FAQSection({
     loadFAQs()
   }, [category, limit])
 
-  const toggleExpanded = (id: number) => {
+  const toggleExpanded = (id: string) => {
     setExpandedItems((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(id)) {
@@ -147,7 +146,7 @@ export default function FAQSection({
           >
             {faqs.map((faq, index) => (
               <motion.div
-                key={faq.id}
+                key={`faq-${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.05 }}
@@ -160,26 +159,26 @@ export default function FAQSection({
                   `}
                 >
                   <button
-                    onClick={() => toggleExpanded(faq.id)}
+                    onClick={() => toggleExpanded(`faq-${index}`)}
                     className="w-full p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-2xl"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="text-lg font-light text-primary leading-relaxed mb-1">{faq.question}</h3>
-                        {!expandedItems.has(faq.id) && faq.answer && (
+                        {!expandedItems.has(`faq-${index}`) && faq.answer && (
                           <p className="text-sm text-muted-foreground font-light line-clamp-2">{parseMarkdownInline(faq.answer)}</p>
                         )}
                       </div>
                       <div
                         className={`
                         w-10 h-10 rounded-full flex items-center justify-center shrink-0
-                        ${expandedItems.has(faq.id) ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}
+                        ${expandedItems.has(`faq-${index}`) ? "bg-primary/10" : "bg-gray-100 dark:bg-gray-800"}
                         transition-all duration-300
                       `}
                       >
                         <motion.div
                           animate={{
-                            rotate: expandedItems.has(faq.id) ? 180 : 0,
+                            rotate: expandedItems.has(`faq-${index}`) ? 180 : 0,
                           }}
                           transition={{
                             duration: 0.3,
@@ -188,7 +187,7 @@ export default function FAQSection({
                         >
                           <ChevronDown
                             className={`w-5 h-5 transition-colors duration-300 ${
-                              expandedItems.has(faq.id) ? "text-primary" : "text-muted-foreground"
+                              expandedItems.has(`faq-${index}`) ? "text-primary" : "text-muted-foreground"
                             }`}
                             strokeWidth={1.5}
                           />
@@ -198,7 +197,7 @@ export default function FAQSection({
                   </button>
 
                   <AnimatePresence initial={false}>
-                    {expandedItems.has(faq.id) && (
+                    {expandedItems.has(`faq-${index}`) && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}

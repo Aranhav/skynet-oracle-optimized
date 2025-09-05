@@ -9,17 +9,18 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
 interface ServicePageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 // Icon helper function
 function getIcon(iconName: string) {
-  const icon = Icons[getServiceIconName(iconName) as keyof typeof Icons]
+  const icon = Icons[getServiceIconName(iconName) as keyof typeof Icons] as any
   return icon || Icons.Package
 }
 
 export default async function ServicePage({ params }: ServicePageProps) {
-  const service = await fetchServiceBySlug(params.slug)
+  const { slug } = await params
+  const service = await fetchServiceBySlug(slug)
 
   if (!service) {
     notFound()
@@ -27,10 +28,11 @@ export default async function ServicePage({ params }: ServicePageProps) {
 
   const IconComponent = getIcon(service.attributes.icon)
   const highlights = service.attributes.Highlights || []
-  const hasImage = service.attributes.image?.data?.attributes?.url
-  const imageUrl = hasImage
-    ? getStrapiMedia(service.attributes.image.data.attributes.url) || service.attributes.image.data.attributes.url
-    : null
+  const imageUrlRaw = service.attributes.image?.data?.attributes?.url
+  const imageUrl = imageUrlRaw
+    ? getStrapiMedia(imageUrlRaw) || imageUrlRaw || "/placeholder-service.jpg"
+    : "/placeholder-service.jpg"
+  const hasImage = !!imageUrlRaw
 
   return (
     <>
@@ -144,7 +146,7 @@ export default async function ServicePage({ params }: ServicePageProps) {
         </section>
 
         {/* Related Services */}
-        {service.attributes.related_services?.data.length > 0 && (
+        {service.attributes.related_services?.data && service.attributes.related_services.data.length > 0 && (
           <section className="py-20 bg-gray-50 dark:bg-gray-950">
             <div className="container">
               <h2 className="mb-12 text-3xl font-light text-center">Related Services</h2>

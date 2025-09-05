@@ -5,47 +5,54 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 6%;
+    --foreground: 0 0% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 6%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 6%;
-    --primary: 0 84% 50%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 84% 50%; /* brand red */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 15%;
+    --secondary: 222 16% 20%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 98%;
-    --muted-foreground: 0 0% 45%;
-    --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 9%;
+    --muted: 210 20% 98%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 210 20% 97%;
+    --accent-foreground: 220 20% 16%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 94%;
-    --input: 0 0% 94%;
+    --border: 210 17% 90%;
+    --input: 210 17% 90%;
     --ring: 0 84% 50%;
     --radius: 0.25rem;
+
+    /* brand gradient helpers */
+    --brand-from: 0 84% 55%; /* red */
+    --brand-to: 20 90% 56%;  /* orange */
   }
 
   .dark {
-    --background: 0 0% 3%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 6%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 6%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 84% 50%;
+    --background: 230 15% 5%;
+    --foreground: 0 0% 96%;
+    --card: 230 18% 8%;
+    --card-foreground: 0 0% 96%;
+    --popover: 230 18% 8%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 0 84% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 85%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 65%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 98%;
+    --secondary: 220 16% 85%;
+    --secondary-foreground: 0 0% 8%;
+    --muted: 225 14% 12%;
+    --muted-foreground: 220 12% 68%;
+    --accent: 225 14% 14%;
+    --accent-foreground: 0 0% 96%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
-    --ring: 0 84% 50%;
+    --border: 220 14% 18%;
+    --input: 220 14% 18%;
+    --ring: 0 84% 56%;
+
+    --brand-from: 0 84% 60%;
+    --brand-to: 20 92% 60%;
   }
 }
 
@@ -57,6 +64,19 @@
     @apply bg-background text-foreground antialiased;
     font-weight: 300;
     letter-spacing: 0.025em;
+    position: relative;
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -20% -10% auto -10%;
+    height: 60vh;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(60rem 30rem at 10% -10%, hsla(var(--brand-from)/0.12), transparent 60%),
+      radial-gradient(60rem 30rem at 90% 0%, hsla(var(--brand-to)/0.10), transparent 60%);
+    filter: blur(10px);
   }
   h1,
   h2,
@@ -96,9 +116,10 @@
 }
 
 /* Hero background gradient */
-.hero-gradient {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.01) 0%, rgba(239, 68, 68, 0.03) 100%);
-}
+  .hero-gradient {
+    background: radial-gradient(60rem 30rem at 20% 0%, hsla(var(--brand-from)/0.12), transparent 60%),
+                radial-gradient(60rem 30rem at 80% -10%, hsla(var(--brand-to)/0.10), transparent 60%);
+  }
 
 /* Services carousel animation */
 @keyframes scroll {
@@ -146,4 +167,29 @@
 /* Modern section spacing */
 .section-spacing {
   @apply space-y-16 md:space-y-20 lg:space-y-24;
+}
+
+/* Soft shadows & gradient helpers */
+.shadow-soft {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+}
+
+.brand-gradient {
+  background-image: linear-gradient(135deg, hsla(var(--brand-from)/1), hsla(var(--brand-to)/1));
+}
+
+/* Fancy gradient border (uses mask) */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, hsla(var(--brand-from)/0.7), hsla(var(--brand-to)/0.7));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
 }

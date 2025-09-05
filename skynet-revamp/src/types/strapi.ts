@@ -74,6 +74,7 @@ export interface Tag extends StrapiAttributes {
 
 // Office Location
 export interface Office extends StrapiAttributes {
+  id?: number
   name: string
   city: string
   addresses: Array<{

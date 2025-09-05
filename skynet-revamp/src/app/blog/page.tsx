@@ -10,7 +10,7 @@ import BlogCard from "@/components/cms/blog-card"
 import { Button } from "@/components/ui/button"
 
 export default function BlogPage() {
-  const [posts, setPosts] = useState<BlogPost[]>([])
+  const [posts, setPosts] = useState<(BlogPost & { id: number })[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

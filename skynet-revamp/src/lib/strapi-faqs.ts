@@ -19,7 +19,7 @@ function extractTextFromRichText(node: any): string {
 
   // If it has children, recursively extract text
   if (node.children && Array.isArray(node.children)) {
-    return node.children.map((child) => extractTextFromRichText(child)).join("")
+    return node.children.map((child: any) => extractTextFromRichText(child)).join("")
   }
 
   // If it has a value property (some rich text formats)
@@ -35,7 +35,10 @@ function extractTextFromRichText(node: any): string {
  */
 export async function fetchFAQs(category?: string): Promise<FAQ[]> {
   try {
-    const queryParts = [strapiQuery.populate(["category"]), strapiQuery.sort(["order:asc", "createdAt:desc"])]
+    const queryParts: Record<string, any>[] = [
+      strapiQuery.populate(["category"]), 
+      strapiQuery.sort(["order:asc", "createdAt:desc"])
+    ]
 
     if (category) {
       queryParts.push(strapiQuery.filters({ category: { $eq: category } }))
@@ -49,7 +52,7 @@ export async function fetchFAQs(category?: string): Promise<FAQ[]> {
       // Successfully fetched FAQs from CMS
       const faqs = response.data.map((item) => {
         // Check if answer is rich text and convert to string
-        let answer = item.attributes.answer
+        let answer: any = item.attributes.answer
 
         // Handle different answer formats
         if (!answer) {
@@ -69,8 +72,8 @@ export async function fetchFAQs(category?: string): Promise<FAQ[]> {
         } else if (Array.isArray(answer)) {
           // If answer is an array of rich text blocks, parse them
           answer = answer
-            .map((block) => extractTextFromRichText(block))
-            .filter((text) => text)
+            .map((block: any) => extractTextFromRichText(block))
+            .filter((text: string) => text)
             .join(" ")
         } else {
           answer = String(answer) // Fallback conversion
@@ -113,7 +116,7 @@ export async function searchFAQs(keyword: string): Promise<FAQ[]> {
     if (response.data && Array.isArray(response.data)) {
       return response.data.map((item) => {
         // Check if answer is rich text and convert to string
-        let answer = item.attributes.answer
+        let answer: any = item.attributes.answer
 
         // Handle different answer formats
         if (!answer) {
@@ -133,8 +136,8 @@ export async function searchFAQs(keyword: string): Promise<FAQ[]> {
         } else if (Array.isArray(answer)) {
           // If answer is an array of rich text blocks, parse them
           answer = answer
-            .map((block) => extractTextFromRichText(block))
-            .filter((text) => text)
+            .map((block: any) => extractTextFromRichText(block))
+            .filter((text: string) => text)
             .join(" ")
         } else {
           answer = String(answer) // Fallback conversion

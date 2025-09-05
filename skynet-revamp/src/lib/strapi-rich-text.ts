@@ -92,8 +92,9 @@ function parseNode(node: RichTextNode): string {
 
     default:
       // For unknown types, try to parse children if they exist
-      if ("children" in node && Array.isArray(node.children)) {
-        return parseChildren(node.children)
+      const anyNode = node as any
+      if ("children" in anyNode && Array.isArray(anyNode.children)) {
+        return parseChildren(anyNode.children)
       }
       return ""
   }

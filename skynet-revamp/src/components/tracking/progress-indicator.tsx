@@ -15,11 +15,11 @@ interface ProgressIndicatorProps {
 
 export default function ProgressIndicator({ currentStatus }: ProgressIndicatorProps) {
   const getSteps = (): ProgressStep[] => {
-    const steps = [
-      { icon: Package, label: "Order Received", status: "pending" as const },
-      { icon: Truck, label: "In Transit", status: "pending" as const },
-      { icon: MapPin, label: "Out for Delivery", status: "pending" as const },
-      { icon: CheckCircle, label: "Delivered", status: "pending" as const },
+    const steps: ProgressStep[] = [
+      { icon: Package, label: "Order Received", status: "pending" },
+      { icon: Truck, label: "In Transit", status: "pending" },
+      { icon: MapPin, label: "Out for Delivery", status: "pending" },
+      { icon: CheckCircle, label: "Delivered", status: "pending" },
     ]
 
     // Set status based on current status

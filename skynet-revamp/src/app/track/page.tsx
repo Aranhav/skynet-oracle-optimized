@@ -31,6 +31,7 @@ function TrackingContent() {
       setTrackingNumber(id)
       handleTrack(id)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   const handleTrack = async (number?: string) => {
