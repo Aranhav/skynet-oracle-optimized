@@ -1,0 +1,40 @@
+{
+  "collectionName": "components_service_service_highlights",
+  "info": {
+    "displayName": "Service Highlight",
+    "icon": "star"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "maxLength": 50
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200,
+      "required": true
+    },
+    "icon": {
+      "type": "enumeration",
+      "enum": [
+        "Clock",
+        "Globe",
+        "Shield",
+        "Plane",
+        "Truck",
+        "Package",
+        "MapPin",
+        "Zap",
+        "Heart",
+        "Compass",
+        "IndianRupee",
+        "CheckCircle",
+        "Star",
+        "Award",
+        "Headphones"
+      ]
+    }
+  }
+}

@@ -1,0 +1,58 @@
+# Secure automated deployment to Ubuntu server using SSH key
+name: Deploy Frontend to Ubuntu (Secure)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  SERVER_HOST: 43.224.137.98
+  SERVER_PORT: 5726
+  SERVER_USER: root
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ env.SERVER_PORT }} -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Copy deployment script to server
+        run: |
+          scp -P ${{ env.SERVER_PORT }} \
+            ./scripts/deploy-ubuntu.sh \
+            ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}:/tmp/deploy-frontend.sh
+      
+      - name: Execute deployment
+        run: |
+          ssh -p ${{ env.SERVER_PORT }} ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} << 'ENDSSH'
+            # Make script executable
+            chmod +x /tmp/deploy-frontend.sh
+            
+            # Run deployment script
+            /tmp/deploy-frontend.sh
+            
+            # Clean up
+            rm /tmp/deploy-frontend.sh
+          ENDSSH
+      
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          echo "Deployment failed! Check logs on server: /var/log/skynet-frontend-deploy.log"
+          # Add Slack/Discord notification here if needed
+      
+      - name: Send notification on success
+        if: success()
+        run: |
+          echo "✅ Frontend deployed successfully to Ubuntu server!"
+          # Add Slack/Discord notification here if needed

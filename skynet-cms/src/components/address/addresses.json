@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_address_addresses",
+  "info": {
+    "displayName": "addresses",
+    "icon": "alien"
+  },
+  "options": {},
+  "attributes": {
+    "type": {
+      "type": "string"
+    },
+    "address": {
+      "type": "text"
+    }
+  }
+}

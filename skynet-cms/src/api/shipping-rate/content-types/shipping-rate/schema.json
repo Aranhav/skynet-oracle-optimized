@@ -1,0 +1,45 @@
+{
+  "kind": "collectionType",
+  "collectionName": "shipping_rates",
+  "info": {
+    "singularName": "shipping-rate",
+    "pluralName": "shipping-rates",
+    "displayName": "Shipping Rate",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "from_country": {
+      "type": "string",
+      "required": true,
+      "default": "India",
+      "maxLength": 50
+    },
+    "destination_country": {
+      "type": "string",
+      "required": true,
+      "maxLength": 50
+    },
+    "weight_from": {
+      "type": "decimal",
+      "required": true,
+      "default": 0
+    },
+    "weight_to": {
+      "type": "decimal",
+      "default": 0,
+      "required": true
+    },
+    "rate_inr": {
+      "type": "integer",
+      "required": true,
+      "default": 0
+    },
+    "serviceDays": {
+      "type": "string"
+    }
+  }
+}

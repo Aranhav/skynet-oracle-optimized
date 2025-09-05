@@ -1,0 +1,106 @@
+{
+  "kind": "collectionType",
+  "collectionName": "services",
+  "info": {
+    "singularName": "service",
+    "pluralName": "services",
+    "displayName": "Service",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title"
+    },
+    "shortDescription": {
+      "type": "text",
+      "maxLength": 200
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "icon": {
+      "type": "enumeration",
+      "enum": [
+        "Plane",
+        "Truck",
+        "Package",
+        "Globe",
+        "ShoppingCart",
+        "Shield",
+        "Clock",
+        "MapPin",
+        "Zap",
+        "Heart",
+        "Compass",
+        "Mail",
+        "Warehouse",
+        "ArrowRepeat"
+      ]
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "featured": {
+      "type": "boolean"
+    },
+    "ctaText": {
+      "type": "string",
+      "default": "Learn More"
+    },
+    "ctaLink": {
+      "type": "string"
+    },
+    "Highlights": {
+      "type": "component",
+      "repeatable": true,
+      "component": "service.service-highlight",
+      "max": 3,
+      "min": 3,
+      "required": true
+    },
+    "related_services": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::service.service",
+      "inversedBy": "services"
+    },
+    "services": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::service.service",
+      "inversedBy": "related_services"
+    },
+    "category": {
+      "type": "enumeration",
+      "enum": [
+        "express",
+        "logistics",
+        "freight",
+        "ecommerce",
+        "specialized",
+        "international",
+        "domestic"
+      ]
+    }
+  }
+}

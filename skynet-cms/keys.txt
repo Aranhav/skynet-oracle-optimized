@@ -1,0 +1,21 @@
+🔐 Generating secure keys for Strapi...
+
+APP_KEYS (copy all 4, comma-separated):
+  1. fA+4yjJAQ1rT9gYcrfX0Og==
+  2. T7c0A6S0oI7BkU6lVLxwHA==
+  3. x5P+uJnRWVjwCFH2o1zpFQ==
+  4. 0/VljnsTdfB4jUR9lNR7Kg==
+
+APP_KEYS=fA+4yjJAQ1rT9gYcrfX0Og==,T7c0A6S0oI7BkU6lVLxwHA==,x5P+uJnRWVjwCFH2o1zpFQ==,0/VljnsTdfB4jUR9lNR7Kg==
+
+
+SECRETS AND SALTS:
+
+ADMIN_JWT_SECRET=XSeLzKLJy8VCt4PE6YloUoprXZmtGEty8T/honPykko=
+API_TOKEN_SALT=U16UCVoVUH589cDy48sidnWaDIrbjrvzBcANj/+d8zs=
+TRANSFER_TOKEN_SALT=JAhjzGythN6y3+FfrFCc3cFtpAoxRpxiovThasaftoM=
+JWT_SECRET=ZYgVSL0eQtzVhU7UoKGhn+rzWcYpRW+y++3I563YnMM=
+
+✅ Keys generated successfully!
+📝 Copy these to your Railway environment variables.
+⚠️  Keep these keys secure and never commit them to git!

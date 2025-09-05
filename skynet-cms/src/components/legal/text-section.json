@@ -1,0 +1,18 @@
+{
+  "collectionName": "components_legal_text_sections",
+  "info": {
+    "displayName": "Text Section",
+    "icon": "attachment"
+  },
+  "options": {},
+  "attributes": {
+    "heading": {
+      "type": "string",
+      "required": true
+    },
+    "content": {
+      "type": "richtext",
+      "required": true
+    }
+  }
+}

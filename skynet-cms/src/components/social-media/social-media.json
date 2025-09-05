@@ -1,0 +1,25 @@
+{
+  "collectionName": "components_social_media_social_medias",
+  "info": {
+    "displayName": "socialMedia",
+    "icon": "briefcase"
+  },
+  "options": {},
+  "attributes": {
+    "facebook": {
+      "type": "string"
+    },
+    "twitter": {
+      "type": "string"
+    },
+    "instagram": {
+      "type": "string"
+    },
+    "linkedin": {
+      "type": "string"
+    },
+    "youtube": {
+      "type": "string"
+    }
+  }
+}
