@@ -150,7 +150,8 @@ setup_environment() {
     API_TOKEN_SALT=$(generate_random 32)
     TRANSFER_TOKEN_SALT=$(generate_random 32)
     JWT_SECRET=$(generate_random 32)
-    DB_PASSWORD=$(generate_random 16)
+    # Use simple, reliable password for database
+    DB_PASSWORD="skynet2024"
     
     # Create Frontend .env.local
     echo -e "\n${YELLOW}Creating Frontend environment file...${NC}"
@@ -317,28 +318,37 @@ deploy_application() {
     sudo systemctl start postgresql
     sudo systemctl enable postgresql
     
-    DB_EXISTS=$(sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -w "$DB_NAME" || true)
-    
-    if [ -z "$DB_EXISTS" ]; then
-        # Create new database and user
-        sudo -u postgres psql << EOF
-CREATE DATABASE ${DB_NAME};
+    # Drop and recreate to ensure clean state
+    echo -e "${YELLOW}Resetting database for clean deployment...${NC}"
+    sudo -u postgres psql << EOF
+DROP DATABASE IF EXISTS ${DB_NAME};
+DROP USER IF EXISTS ${DB_USER};
 CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';
+CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};
 GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
-ALTER DATABASE ${DB_NAME} OWNER TO ${DB_USER};
+ALTER USER ${DB_USER} CREATEDB;
 \q
 EOF
-        check_status "PostgreSQL database created"
+    check_status "PostgreSQL database setup"
+    
+    # Test database connection
+    echo -e "${YELLOW}Testing database connection...${NC}"
+    PGPASSWORD="${DB_PASS}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" -c "SELECT 1;" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ Database connection successful${NC}"
     else
-        echo -e "${GREEN}✓ Database already exists${NC}"
-        # Update password for existing user (fixes authentication issues)
-        echo -e "${YELLOW}Updating database user password...${NC}"
+        echo -e "${RED}✗ Database connection failed${NC}"
+        echo -e "${YELLOW}Attempting to fix...${NC}"
+        # Try to fix with a simpler password
+        SIMPLE_PASS="skynet2024"
         sudo -u postgres psql << EOF
-ALTER USER ${DB_USER} WITH PASSWORD '${DB_PASS}';
-GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
+ALTER USER ${DB_USER} WITH PASSWORD '${SIMPLE_PASS}';
 \q
 EOF
-        check_status "Database password updated"
+        # Update the .env file with simple password
+        sed -i "s/DATABASE_PASSWORD=.*/DATABASE_PASSWORD=${SIMPLE_PASS}/" "$SCRIPT_DIR/$CMS_DIR/.env"
+        DB_PASS="${SIMPLE_PASS}"
+        echo -e "${GREEN}✓ Database password simplified to: ${SIMPLE_PASS}${NC}"
     fi
     
     # Create application directory
@@ -481,9 +491,40 @@ EOF
     pm2 stop all 2>/dev/null || true
     pm2 delete all 2>/dev/null || true
     
-    # Start CMS with better error handling
-    cd "$DEPLOY_DIR/cms"
-    pm2 start npm --name "skynet-cms" -- start || {
+    # Create PM2 ecosystem file with restart limits
+    cat > "$DEPLOY_DIR/ecosystem.config.js" << 'PMCONF'
+module.exports = {
+  apps: [
+    {
+      name: 'skynet-cms',
+      cwd: '/var/www/skynet/cms',
+      script: 'npm',
+      args: 'start',
+      max_restarts: 3,
+      min_uptime: '10s',
+      env: {
+        NODE_ENV: 'production',
+        NODE_OPTIONS: '--max-old-space-size=2048'
+      }
+    },
+    {
+      name: 'skynet-frontend',
+      cwd: '/var/www/skynet/frontend',
+      script: 'npm',
+      args: 'start',
+      max_restarts: 5,
+      min_uptime: '10s',
+      env: {
+        NODE_ENV: 'production'
+      }
+    }
+  ]
+}
+PMCONF
+    
+    # Start CMS with ecosystem config
+    cd "$DEPLOY_DIR"
+    pm2 start ecosystem.config.js --only skynet-cms || {
         echo -e "${RED}✗ Failed to start CMS with PM2${NC}"
         echo -e "${YELLOW}Checking CMS logs...${NC}"
         pm2 logs skynet-cms --lines 20
@@ -498,9 +539,9 @@ EOF
         exit 1
     }
     
-    # Start Frontend with better error handling  
-    cd "$DEPLOY_DIR/frontend"
-    pm2 start npm --name "skynet-frontend" -- start || {
+    # Start Frontend with ecosystem config
+    cd "$DEPLOY_DIR"
+    pm2 start ecosystem.config.js --only skynet-frontend || {
         echo -e "${RED}✗ Failed to start Frontend with PM2${NC}"
         echo -e "${YELLOW}Checking Frontend logs...${NC}"
         pm2 logs skynet-frontend --lines 20
