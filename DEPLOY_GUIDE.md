@@ -13,15 +13,43 @@
   - SSH access to server
   - Basic Linux knowledge
 
+## 🚨 Migration Notes (January 2025 Update)
+
+### Important Node.js Version Requirement
+**⚠️ CRITICAL**: Strapi 5.x requires Node.js version 20.x or 22.x. Node.js 23+ is NOT supported and will cause build failures.
+
+### Breaking Changes from Previous Versions
+1. **Next.js 15**: Dynamic route params now return Promise objects
+2. **React 19**: Updated hooks and rendering optimizations
+3. **Strapi 5**: New API structure and plugin system
+4. **TypeScript**: Stricter type checking enabled
+
+### If Upgrading from Previous Deployment
+```bash
+# Backup existing data first
+pg_dump skynet_db > backup_before_upgrade.sql
+tar -czf uploads_backup.tar.gz /var/www/skynet/cms/public/uploads
+
+# Clean install dependencies
+cd /var/www/skynet/frontend
+rm -rf node_modules package-lock.json
+npm install
+
+cd /var/www/skynet/cms  
+rm -rf node_modules package-lock.json
+npm install
+```
+
 ## 🆕 What's New (Version 2.0)
 
 This deployment now includes major upgrades for better stability and performance:
 
-### ✅ Updated Dependencies
-- **Next.js 15.5+** - Latest stable version with React 19 support
-- **React 19.1.0+** - Latest stable with new features and performance improvements
-- **Strapi 5.23.2+** - Latest stable with TypeScript support and improved API
-- **Node.js 20.x LTS** - Required for all latest dependencies
+### ✅ Updated Dependencies (January 2025)
+- **Next.js 15.5.2** - Latest stable version with React 19 support
+- **React 19.1.0** - Latest stable with new features and performance improvements
+- **Strapi 5.23.3** - Latest stable with TypeScript support and improved API
+- **Node.js 20.x-22.x LTS** - Required (Note: Node 23+ not supported by Strapi)
+- **TypeScript 5.7.2** - Latest with improved type checking
 - **ESLint 9.x** - Updated linting with modern rules
 
 ### ✅ Improved Deployment Process
@@ -35,7 +63,7 @@ This deployment now includes major upgrades for better stability and performance
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/skynet-oracle-optimized.git
+git clone https://github.com/Aranhav/skynet-oracle-optimized.git
 cd skynet-oracle-optimized
 ```
 
@@ -106,7 +134,7 @@ This will:
 ./deploy.sh deploy-only
 ```
 This will:
-- Install Node.js 20.x LTS, PostgreSQL, Nginx
+- Install Node.js 20.x or 22.x LTS (Important: Node 23+ not supported), PostgreSQL, Nginx
 - Check system compatibility and requirements
 - Setup database with proper credentials
 - Install all dependencies (including devDependencies for building)
@@ -324,6 +352,9 @@ sudo systemctl restart nginx
 # Pull latest changes
 cd /home/ubuntu/skynet
 git pull origin main
+
+# IMPORTANT: Ensure Node.js version is <=22.x
+node --version  # Should be 20.x or 22.x, NOT 23+
 
 # Rebuild frontend (with proper dependency installation)
 cd /var/www/skynet/frontend
