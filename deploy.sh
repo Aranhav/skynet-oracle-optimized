@@ -320,6 +320,7 @@ deploy_application() {
     DB_EXISTS=$(sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -w "$DB_NAME" || true)
     
     if [ -z "$DB_EXISTS" ]; then
+        # Create new database and user
         sudo -u postgres psql << EOF
 CREATE DATABASE ${DB_NAME};
 CREATE USER ${DB_USER} WITH PASSWORD '${DB_PASS}';
@@ -330,6 +331,14 @@ EOF
         check_status "PostgreSQL database created"
     else
         echo -e "${GREEN}✓ Database already exists${NC}"
+        # Update password for existing user (fixes authentication issues)
+        echo -e "${YELLOW}Updating database user password...${NC}"
+        sudo -u postgres psql << EOF
+ALTER USER ${DB_USER} WITH PASSWORD '${DB_PASS}';
+GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
+\q
+EOF
+        check_status "Database password updated"
     fi
     
     # Create application directory
