@@ -357,13 +357,21 @@ EOF
     
     # Install all dependencies (including devDependencies for building)
     echo -e "${YELLOW}Installing CMS dependencies...${NC}"
-    npm ci --no-audit --no-fund || {
-        echo -e "${RED}✗ CMS npm install failed. Trying with install...${NC}"
-        npm install || {
+    if [ -f "package-lock.json" ]; then
+        npm ci --no-audit --no-fund || {
+            echo -e "${YELLOW}npm ci failed, trying npm install...${NC}"
+            rm -f package-lock.json
+            npm install --no-audit --no-fund || {
+                echo -e "${RED}✗ CMS dependency installation failed${NC}"
+                exit 1
+            }
+        }
+    else
+        npm install --no-audit --no-fund || {
             echo -e "${RED}✗ CMS dependency installation failed${NC}"
             exit 1
         }
-    }
+    fi
     
     # Build CMS
     echo -e "${YELLOW}Building CMS...${NC}"
@@ -385,13 +393,21 @@ EOF
     
     # Install all dependencies (including devDependencies for building)
     echo -e "${YELLOW}Installing Frontend dependencies...${NC}"
-    npm ci --no-audit --no-fund || {
-        echo -e "${RED}✗ Frontend npm install failed. Trying with install...${NC}"
-        npm install || {
+    if [ -f "package-lock.json" ]; then
+        npm ci --no-audit --no-fund || {
+            echo -e "${YELLOW}npm ci failed, trying npm install...${NC}"
+            rm -f package-lock.json
+            npm install --no-audit --no-fund || {
+                echo -e "${RED}✗ Frontend dependency installation failed${NC}"
+                exit 1
+            }
+        }
+    else
+        npm install --no-audit --no-fund || {
             echo -e "${RED}✗ Frontend dependency installation failed${NC}"
             exit 1
         }
-    }
+    fi
     
     # Build Frontend
     echo -e "${YELLOW}Building Frontend...${NC}"
