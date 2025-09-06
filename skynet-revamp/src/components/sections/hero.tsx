@@ -21,8 +21,17 @@ export default function HeroSection() {
 
   const handleTrack = (e: React.FormEvent) => {
     e.preventDefault()
-    if (trackingNumber.trim()) {
-      router.push(`/track?id=${trackingNumber.trim()}`)
+    const trimmedNumber = trackingNumber.trim()
+    if (trimmedNumber) {
+      // Navigate to tracking page with the tracking number
+      router.push(`/track?id=${encodeURIComponent(trimmedNumber)}`)
+    }
+  }
+
+  const handleButtonClick = () => {
+    const trimmedNumber = trackingNumber.trim()
+    if (trimmedNumber) {
+      router.push(`/track?id=${encodeURIComponent(trimmedNumber)}`)
     }
   }
 
@@ -77,13 +86,21 @@ export default function HeroSection() {
                 placeholder="Enter your Tracking Numbers"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && trackingNumber.trim()) {
+                    e.preventDefault()
+                    router.push(`/track?id=${encodeURIComponent(trackingNumber.trim())}`)
+                  }
+                }}
                 className="flex-1 h-14 px-6 text-base font-light border-0 bg-muted/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20"
                 required
               />
               <Button
                 type="submit"
                 size="lg"
-                className="h-14 px-10 bg-primary hover:bg-primary/90 text-white font-medium rounded-full"
+                onClick={handleButtonClick}
+                disabled={!trackingNumber.trim()}
+                className="h-14 px-10 bg-primary hover:bg-primary/90 text-white font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 TRACK
               </Button>
