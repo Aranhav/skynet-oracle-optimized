@@ -3,7 +3,7 @@
 # =====================================================
 # SKYNET ORACLE DEPLOYMENT - ALL-IN-ONE SCRIPT
 # For Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores)
-# Version: 3.2 - With All Production Fixes
+# Version: 4.0 - Complete API Routing & Public Access Fixes
 # =====================================================
 
 set -e
@@ -32,7 +32,7 @@ MIGRATION_SOURCE=${3:-""}  # For database migration
 
 show_header() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v3.2${NC}"
+    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v4.0${NC}"
     echo -e "${BLUE}  Mode: ${MODE}${NC}"
     echo -e "${BLUE}==========================================${NC}\n"
 }
@@ -353,9 +353,9 @@ setup_environment() {
     echo -e "\n${YELLOW}Creating Frontend environment file...${NC}"
     cat > "$FRONTEND_DIR/.env.local" << EOF
 # API Configuration (Public endpoints - no token needed)
-NEXT_PUBLIC_API_URL=http://${SERVER_IP}:1337
+NEXT_PUBLIC_API_URL=http://${SERVER_IP}
 NEXT_PUBLIC_SITE_URL=http://${SERVER_IP}
-NEXT_PUBLIC_STRAPI_URL=http://${SERVER_IP}:1337
+NEXT_PUBLIC_STRAPI_URL=http://${SERVER_IP}
 STRAPI_API_URL=http://localhost:1337
 
 # Environment
@@ -693,16 +693,18 @@ EOF
     
     check_status "Frontend deployed"
     
-    # Configure Nginx with proper routing
-    echo -e "${YELLOW}Configuring Nginx...${NC}"
+    # Configure Nginx with FIXED routing for Strapi API
+    echo -e "${YELLOW}Configuring Nginx with proper API routing...${NC}"
     sudo tee /etc/nginx/sites-available/skynet > /dev/null << 'NGINX'
 server {
     listen 80;
     server_name _;
     client_max_body_size 250M;
 
-    # API routes from Next.js (including /api/track)
-    location /api {
+    # IMPORTANT: Order matters! More specific routes first
+
+    # Next.js specific API routes (must come FIRST)
+    location ~ ^/api/(track|health|mock) {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -712,6 +714,37 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Strapi API routes - ALL other /api/* routes go to Strapi
+    location /api/ {
+        proxy_pass http://localhost:1337/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 90;
+        
+        # CORS headers for API access
+        add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+        add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range' always;
+        
+        # Handle OPTIONS preflight
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
     }
 
     # Strapi Admin Panel
@@ -727,7 +760,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Strapi CMS endpoints
+    # Strapi Content Manager and other admin routes
     location ~ ^/(content-manager|content-type-builder|upload|users-permissions|_health) {
         proxy_pass http://localhost:1337;
         proxy_http_version 1.1;
@@ -750,7 +783,7 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Frontend (everything else)
+    # Frontend - Everything else goes to Next.js
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -953,8 +986,23 @@ case $MODE in
         echo -e "${GREEN}  Email:    admin@skynet.com${NC}"
         echo -e "${GREEN}  Password: SkynetAdmin@2025${NC}"
         echo -e "${BLUE}═══════════════════════════════════════════${NC}\n"
-        echo -e "3. Configure Public API permissions (see STRAPI_PUBLIC_API_SETUP.md)"
-        echo -e "4. Create content in Strapi admin panel"
+        
+        echo -e "${RED}3. IMPORTANT - Set Public API Permissions:${NC}"
+        echo -e "   a. Login to Strapi admin panel"
+        echo -e "   b. Go to: Settings → Users & Permissions → Roles → Public"
+        echo -e "   c. Enable 'find' and 'findOne' for:"
+        echo -e "      - Blog Posts"
+        echo -e "      - Services"
+        echo -e "      - Office Locations"
+        echo -e "      - Global Settings"
+        echo -e "      - FAQs"
+        echo -e "      - Partners"
+        echo -e "      - Testimonials"
+        echo -e "   d. Click Save"
+        echo -e "\n4. Create content in Strapi admin panel"
+        echo -e "\n${YELLOW}Test API endpoints:${NC}"
+        echo -e "  curl http://${SERVER_IP}/api/blog-posts"
+        echo -e "  curl http://${SERVER_IP}/api/services"
         
         echo -e "\n${YELLOW}To migrate existing content:${NC}"
         echo -e "  ./deploy.sh migrate-db"
@@ -997,8 +1045,16 @@ case $MODE in
         echo -e "${GREEN}  Email:    admin@skynet.com${NC}"
         echo -e "${GREEN}  Password: SkynetAdmin@2025${NC}"
         echo -e "${BLUE}═══════════════════════════════════════════${NC}\n"
-        echo -e "4. Configure Public API permissions (see STRAPI_PUBLIC_API_SETUP.md)"
-        echo -e "5. Create content in Strapi admin panel"
+        
+        echo -e "${RED}4. IMPORTANT - Set Public API Permissions:${NC}"
+        echo -e "   a. Login to Strapi admin panel"
+        echo -e "   b. Go to: Settings → Users & Permissions → Roles → Public"
+        echo -e "   c. Enable 'find' and 'findOne' for all content types"
+        echo -e "   d. Click Save"
+        echo -e "\n5. Create content in Strapi admin panel"
+        echo -e "\n${YELLOW}Test API endpoints:${NC}"
+        echo -e "  curl http://${SERVER_IP}/api/blog-posts"
+        echo -e "  curl http://${SERVER_IP}/api/services"
         
         echo -e "\n${BLUE}Useful Commands:${NC}"
         echo -e "  View logs:       pm2 logs"
