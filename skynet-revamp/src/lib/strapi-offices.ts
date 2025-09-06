@@ -65,10 +65,10 @@ export async function fetchOfficeLocation(id: number): Promise<Office | null> {
  */
 export async function fetchHeadOffice(): Promise<Office | null> {
   try {
-    const params = strapiQuery.build(
-      strapiQuery.populate(["addresses", "coordinates"]),
-      { "filters[isHeadOffice][$eq]": true }
-    )
+    const params = {
+      populate: "*",
+      "filters[isHeadOffice][$eq]": true
+    }
 
     console.log("Fetching head office from Strapi...")
     const response: StrapiResponse<StrapiData<Office>[]> = await fetchAPI("/office-locations", params)
@@ -99,11 +99,11 @@ export async function fetchHeadOffice(): Promise<Office | null> {
  */
 export async function fetchAllHeadOffices(): Promise<Office[]> {
   try {
-    const params = strapiQuery.build(
-      strapiQuery.populate(["addresses", "coordinates"]),
-      { "filters[isHeadOffice][$eq]": true },
-      strapiQuery.sort(["id:asc"])
-    )
+    const params = {
+      populate: "*",
+      "filters[isHeadOffice][$eq]": true,
+      sort: "id:asc"
+    }
 
     console.log("Fetching all head offices from Strapi...")
     const response: StrapiResponse<StrapiData<Office>[]> = await fetchAPI("/office-locations", params)

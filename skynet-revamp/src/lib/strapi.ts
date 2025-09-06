@@ -42,11 +42,20 @@ export async function fetchAPI(path: string, urlParamsObject: Record<string, any
             }
           })
         } else if (key === "populate") {
-          // Handle populate parameter specially for components
+          // Handle populate parameter for Strapi v4/v5
           if (value === "*" || value === "deep") {
             queryParams.append("populate", "*")
           } else if (Array.isArray(value)) {
-            value.forEach(field => queryParams.append("populate", field))
+            // For array of fields, use array syntax
+            value.forEach((field, index) => {
+              queryParams.append(`populate[${index}]`, field)
+            })
+          } else if (typeof value === "string" && value.includes(",")) {
+            // If it's a comma-separated string, convert to array syntax
+            const fields = value.split(",")
+            fields.forEach((field, index) => {
+              queryParams.append(`populate[${index}]`, field.trim())
+            })
           } else {
             queryParams.append("populate", String(value))
           }
@@ -102,15 +111,15 @@ export function getStrapiMedia(url: string | null) {
  * Helper to build Strapi query parameters
  */
 export const strapiQuery = {
-  // Populate specific fields - fixed for components
+  // Populate specific fields - using array format for Strapi v4/v5
   populate: (fields: string | string[]) => {
     // For '*' or deep population, return as is
     if (fields === '*' || fields === 'deep') {
       return { populate: '*' }
     }
-    // For array of fields, join them
+    // For array of fields, keep as array (will be handled in fetchAPI)
     if (Array.isArray(fields)) {
-      return { populate: fields.join(",") }
+      return { populate: fields }
     }
     // For single field
     return { populate: fields }

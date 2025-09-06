@@ -24,7 +24,7 @@ export interface GlobalSettings {
 export async function fetchGlobalSettings(): Promise<GlobalSettings | null> {
   try {
     const response = await fetchAPI("/global-settings", {
-      populate: ["logo", "favicon", "socialMedia"],
+      populate: "*",
     })
 
     if (!response.data || response.data.length === 0) {

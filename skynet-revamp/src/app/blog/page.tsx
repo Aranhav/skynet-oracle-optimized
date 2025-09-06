@@ -22,11 +22,12 @@ export default function BlogPage() {
         
         const response: StrapiResponse<StrapiData<BlogPost>[]> = await fetchAPI(
           "/blog-posts",
-          strapiQuery.build(strapiQuery.populate(["featuredImage", "author", "category"]), {
+          {
+            populate: "*",
             "pagination[page]": 1,
             "pagination[pageSize]": 100,
             sort: "createdAt:desc",
-          })
+          }
         )
 
         if (response.data) {
