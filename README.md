@@ -1,100 +1,88 @@
-# Skynet Oracle Cloud Deployment v2.0
+# Skynet India - Oracle Cloud Deployment
 
-Optimized deployment for Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores, 200GB Storage).
+Complete deployment solution for Skynet India with Next.js frontend and Strapi CMS.
 
-## 🚀 Quick Start
-
-```bash
-# Clone repository
-git clone https://github.com/yourusername/skynet-oracle-optimized.git
-cd skynet-oracle-optimized
-
-# Run deployment
-chmod +x deploy.sh
-./deploy.sh full
-```
-
-## 🆕 Version 2.0 Improvements
-
-- **Latest Dependencies** - Next.js 15.5+, React 19, Strapi 5.23+, Node.js 20.x LTS
-- **Fixed Build Issues** - Proper dependency management during build process
-- **Enhanced Error Handling** - Better logging and automatic retries
-- **Health Checks** - Service verification before proceeding
-- **Compatibility Validation** - System requirements checking
-
-## 📋 Features
-
-- **Native ARM Deployment** - Optimized for Oracle's ARM architecture
-- **Latest Tech Stack** - Next.js 15, React 19, Strapi 5, Node.js 20
-- **Local Storage** - No external dependencies (Cloudinary removed)  
-- **Production Ready** - PM2 clustering, Nginx proxy, PostgreSQL
-- **Resource Efficient** - Uses only 3-4GB RAM of 24GB available
-- **Single Script** - One command deployment with comprehensive error handling
-
-## 🔧 Deployment Modes
+## 🚀 One-Command Deploy
 
 ```bash
-# Full deployment (environment + application)
-./deploy.sh full
-
-# Environment setup only
-./deploy.sh env-only
-
-# Application deployment only (requires env files)
-./deploy.sh deploy-only
+./deploy-to-oracle.sh
 ```
+
+This single command handles everything:
+- Pushes code to GitHub
+- Deploys to Oracle server
+- Configures Nginx routing
+- Restarts all services
+- Tests API endpoints
+
+## 📋 Post-Deployment Setup
+
+After deployment, configure Strapi:
+
+1. **Login to Admin Panel**
+   - URL: http://152.67.4.226/admin
+   - Email: `admin@skynet.com`
+   - Password: `SkynetAdmin@2025`
+
+2. **Set Public Permissions**
+   - Go to Settings → Users & Permissions → Roles → Public
+   - Enable 'find' and 'findOne' for all content types
+   - Click Save
+
+3. **Create Content**
+   - Add blog posts
+   - Create services
+   - Upload logo/favicon
+
+## 🔧 Tech Stack
+
+- **Frontend**: Next.js 15.5.2, React 19, TailwindCSS
+- **CMS**: Strapi 5.23.3
+- **Database**: PostgreSQL 14
+- **Server**: Oracle Cloud (24GB RAM, 4 ARM Cores)
+- **Process Manager**: PM2
+- **Reverse Proxy**: Nginx
 
 ## 📁 Project Structure
 
 ```
-skynet-oracle-optimized/
-├── skynet-revamp/       # Next.js frontend
-├── skynet-cms/          # Strapi CMS
-├── deploy.sh            # All-in-one deployment script
-├── DEPLOY_GUIDE.md      # Comprehensive deployment guide
-└── README.md            # This file
+skynet-oracle-docker/
+├── skynet-revamp/          # Next.js frontend
+├── skynet-cms/             # Strapi CMS
+└── deploy-to-oracle.sh     # Complete deployment script
 ```
 
-## 📊 Resource Usage
+## 🌐 Live URLs
 
-| Resource | Usage | Available |
-|----------|-------|-----------|
-| **RAM** | 3-4GB | 24GB |
-| **CPU** | 2 cores | 4 cores |
-| **Storage** | ~150MB + uploads | 200GB |
-
-## 🔗 Access URLs
-
-After deployment:
-- **Frontend**: `http://YOUR_SERVER_IP`
-- **CMS Admin**: `http://YOUR_SERVER_IP/admin`
-- **API**: `http://YOUR_SERVER_IP/api`
-
-## 📖 Documentation
-
-See [DEPLOY_GUIDE.md](./DEPLOY_GUIDE.md) for:
-- Detailed installation steps
-- Environment configuration
-- Troubleshooting guide
-- Security recommendations
-- Maintenance procedures
+- **Website**: http://152.67.4.226
+- **Blog**: http://152.67.4.226/blog
+- **Admin**: http://152.67.4.226/admin
+- **API Test**: http://152.67.4.226/api/blog-posts
 
 ## ⚡ Quick Commands
 
 ```bash
-# View status
-pm2 status
+# Deploy everything
+./deploy-to-oracle.sh
+
+# Check services on server
+ssh ubuntu@152.67.4.226 'pm2 status'
 
 # View logs
-pm2 logs
+ssh ubuntu@152.67.4.226 'pm2 logs --lines 50'
 
 # Restart services
-pm2 restart all
-
-# Monitor resources
-pm2 monit
+ssh ubuntu@152.67.4.226 'pm2 restart all'
 ```
 
-## 🆘 Support
+## 🔧 Troubleshooting
 
-For detailed troubleshooting and configuration options, refer to the [Deployment Guide](./DEPLOY_GUIDE.md).
+If blog posts don't appear:
+1. Check API: `curl http://152.67.4.226/api/blog-posts`
+2. If empty → Create content in Strapi
+3. If 403 → Set public permissions in Strapi admin
+4. If 404 → Run deployment script again
+
+## 📝 License
+
+© 2025 Skynet Express India Private Limited
