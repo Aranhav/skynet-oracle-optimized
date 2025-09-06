@@ -3,6 +3,7 @@
 # =====================================================
 # SKYNET ORACLE DEPLOYMENT - ALL-IN-ONE SCRIPT
 # For Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores)
+# Version: 3.0 - With Database Migration Support
 # =====================================================
 
 set -e
@@ -21,8 +22,9 @@ FRONTEND_DIR="skynet-revamp"
 CMS_DIR="skynet-cms"
 
 # Default values
-MODE=${1:-"full"}  # full, env-only, deploy-only
+MODE=${1:-"full"}  # full, env-only, deploy-only, migrate-db
 SERVER_IP=${2:-$(hostname -I | awk '{print $1}')}
+MIGRATION_SOURCE=${3:-""}  # For database migration
 
 # =====================================================
 # FUNCTIONS
@@ -30,7 +32,7 @@ SERVER_IP=${2:-$(hostname -I | awk '{print $1}')}
 
 show_header() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT${NC}"
+    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v3.0${NC}"
     echo -e "${BLUE}  Mode: ${MODE}${NC}"
     echo -e "${BLUE}==========================================${NC}\n"
 }
@@ -122,6 +124,117 @@ wait_for_service() {
 }
 
 # =====================================================
+# DATABASE MIGRATION
+# =====================================================
+
+migrate_database() {
+    echo -e "${BLUE}==========================================${NC}"
+    echo -e "${BLUE}  DATABASE MIGRATION${NC}"
+    echo -e "${BLUE}==========================================${NC}\n"
+    
+    # Database credentials
+    DB_NAME="skynet_cms"
+    DB_USER="skynet"
+    DB_PASS="skynet2024"
+    
+    # Stop services if running
+    echo -e "${YELLOW}Stopping services...${NC}"
+    pm2 stop skynet-cms 2>/dev/null || true
+    
+    # Backup current database if exists
+    echo -e "${YELLOW}Creating backup of current database...${NC}"
+    BACKUP_FILE="$HOME/skynet_backup_$(date +%Y%m%d_%H%M%S).sql"
+    sudo -u postgres pg_dump $DB_NAME > $BACKUP_FILE 2>/dev/null || echo "No existing database to backup"
+    
+    if [ -z "$MIGRATION_SOURCE" ]; then
+        # Interactive migration
+        echo -e "${YELLOW}Select migration source:${NC}"
+        echo "1) Remote PostgreSQL database"
+        echo "2) SQL dump file"
+        echo "3) Database URL (Railway/Render/Heroku)"
+        read -p "Enter choice (1-3): " choice
+        
+        case $choice in
+            1)
+                read -p "Source Host/IP: " SRC_HOST
+                read -p "Source Port [5432]: " SRC_PORT
+                SRC_PORT=${SRC_PORT:-5432}
+                read -p "Source Database [skynet_cms]: " SRC_DB
+                SRC_DB=${SRC_DB:-skynet_cms}
+                read -p "Source Username [postgres]: " SRC_USER
+                SRC_USER=${SRC_USER:-postgres}
+                read -sp "Source Password: " SRC_PASS
+                echo ""
+                
+                echo -e "${YELLOW}Migrating from remote PostgreSQL...${NC}"
+                PGPASSWORD=$SRC_PASS pg_dump \
+                    -h $SRC_HOST \
+                    -p $SRC_PORT \
+                    -U $SRC_USER \
+                    -d $SRC_DB \
+                    --clean --if-exists --no-owner --no-acl | \
+                    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
+                ;;
+            
+            2)
+                read -p "Enter SQL dump file path: " DUMP_FILE
+                if [ ! -f "$DUMP_FILE" ]; then
+                    echo -e "${RED}File not found: $DUMP_FILE${NC}"
+                    exit 1
+                fi
+                echo -e "${YELLOW}Importing SQL dump...${NC}"
+                PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost < $DUMP_FILE
+                ;;
+            
+            3)
+                read -p "Enter database URL: " DB_URL
+                echo -e "${YELLOW}Migrating from database URL...${NC}"
+                pg_dump "$DB_URL" --clean --if-exists --no-owner --no-acl | \
+                    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
+                ;;
+        esac
+    else
+        # Non-interactive migration with provided source
+        if [[ "$MIGRATION_SOURCE" == postgres://* ]] || [[ "$MIGRATION_SOURCE" == postgresql://* ]]; then
+            echo -e "${YELLOW}Migrating from database URL...${NC}"
+            pg_dump "$MIGRATION_SOURCE" --clean --if-exists --no-owner --no-acl | \
+                PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
+        elif [ -f "$MIGRATION_SOURCE" ]; then
+            echo -e "${YELLOW}Importing SQL dump file...${NC}"
+            PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost < $MIGRATION_SOURCE
+        else
+            echo -e "${RED}Invalid migration source: $MIGRATION_SOURCE${NC}"
+            exit 1
+        fi
+    fi
+    
+    # Fix permissions
+    echo -e "${YELLOW}Fixing database permissions...${NC}"
+    sudo -u postgres psql -d $DB_NAME << EOF
+GRANT ALL ON SCHEMA public TO $DB_USER;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO $DB_USER;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO $DB_USER;
+EOF
+    
+    # Verify migration
+    echo -e "${YELLOW}Verifying migration...${NC}"
+    TABLE_COUNT=$(PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';")
+    echo -e "${GREEN}✓ Migration complete. Tables in database: $TABLE_COUNT${NC}"
+    
+    # Show sample data
+    echo -e "${YELLOW}Sample data:${NC}"
+    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost -c "\dt" | head -20
+    
+    # Restart services
+    echo -e "${YELLOW}Restarting services...${NC}"
+    pm2 restart all
+    
+    echo -e "${GREEN}✓ Database migration completed successfully!${NC}"
+    echo -e "Backup saved to: $BACKUP_FILE"
+}
+
+# =====================================================
 # ENVIRONMENT SETUP
 # =====================================================
 
@@ -195,7 +308,7 @@ JWT_SECRET=${JWT_SECRET}
 DATABASE_CLIENT=postgres
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
-DATABASE_NAME=skynet_db
+DATABASE_NAME=skynet_cms
 DATABASE_USERNAME=skynet
 DATABASE_PASSWORD=${DB_PASSWORD}
 DATABASE_SSL=false
@@ -211,6 +324,29 @@ UPLOAD_SIZE_LIMIT=250
 # CORS
 CORS_ORIGINS=http://${SERVER_IP},http://localhost:3000
 EOF
+
+    # Create proper database.js for Oracle deployment
+    echo -e "${YELLOW}Creating CMS database configuration...${NC}"
+    cat > "$CMS_DIR/config/database.js" << 'DBCONFIG'
+module.exports = ({ env }) => ({
+  connection: {
+    client: 'postgres',
+    connection: {
+      host: env('DATABASE_HOST', 'localhost'),
+      port: env.int('DATABASE_PORT', 5432),
+      database: env('DATABASE_NAME', 'skynet_cms'),
+      user: env('DATABASE_USERNAME', 'skynet'),
+      password: env('DATABASE_PASSWORD', 'skynet2024'),
+      ssl: env.bool('DATABASE_SSL', false),
+    },
+    debug: false,
+    pool: {
+      min: 0,
+      max: 10,
+    },
+  },
+});
+DBCONFIG
     
     # Save credentials
     echo -e "\n${YELLOW}Saving credentials...${NC}"
@@ -224,7 +360,7 @@ SERVER IP: ${SERVER_IP}
 
 DATABASE:
 ---------
-Database: skynet_db
+Database: skynet_cms
 Username: skynet
 Password: ${DB_PASSWORD}
 
@@ -233,6 +369,16 @@ URLS:
 Frontend: http://${SERVER_IP}
 CMS Admin: http://${SERVER_IP}/admin
 API: http://${SERVER_IP}/api
+
+STRAPI ADMIN (create after deployment):
+----------------------------------------
+Suggested Username: admin@skynet.com
+Suggested Password: Admin123!@#
+
+DATABASE MIGRATION:
+------------------
+To migrate existing data, run:
+./deploy.sh migrate-db
 
 NEXT STEPS:
 -----------
@@ -284,6 +430,11 @@ deploy_application() {
             echo -e "${YELLOW}Node.js version $NODE_VERSION detected. Upgrading to Node.js 20 LTS...${NC}"
             curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
             sudo apt-get install -y nodejs
+        elif [ "$NODE_VERSION" -ge 23 ]; then
+            echo -e "${RED}Node.js version $NODE_VERSION is not compatible with Strapi${NC}"
+            echo -e "${YELLOW}Installing Node.js 20 LTS...${NC}"
+            curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+            sudo apt-get install -y nodejs
         else
             echo -e "${GREEN}✓ Node.js version $NODE_VERSION is compatible${NC}"
         fi
@@ -319,7 +470,7 @@ deploy_application() {
     sudo systemctl enable postgresql
     
     # Drop and recreate to ensure clean state
-    echo -e "${YELLOW}Resetting database for clean deployment...${NC}"
+    echo -e "${YELLOW}Setting up database...${NC}"
     sudo -u postgres psql << EOF
 DROP DATABASE IF EXISTS ${DB_NAME};
 DROP USER IF EXISTS ${DB_USER};
@@ -338,17 +489,7 @@ EOF
         echo -e "${GREEN}✓ Database connection successful${NC}"
     else
         echo -e "${RED}✗ Database connection failed${NC}"
-        echo -e "${YELLOW}Attempting to fix...${NC}"
-        # Try to fix with a simpler password
-        SIMPLE_PASS="skynet2024"
-        sudo -u postgres psql << EOF
-ALTER USER ${DB_USER} WITH PASSWORD '${SIMPLE_PASS}';
-\q
-EOF
-        # Update the .env file with simple password
-        sed -i "s/DATABASE_PASSWORD=.*/DATABASE_PASSWORD=${SIMPLE_PASS}/" "$SCRIPT_DIR/$CMS_DIR/.env"
-        DB_PASS="${SIMPLE_PASS}"
-        echo -e "${GREEN}✓ Database password simplified to: ${SIMPLE_PASS}${NC}"
+        exit 1
     fi
     
     # Create application directory
@@ -609,10 +750,18 @@ case $MODE in
         echo -e "  API:          ${GREEN}http://${SERVER_IP}/api${NC}"
         
         echo -e "\n${YELLOW}Next Steps:${NC}"
-        echo -e "1. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
-        echo -e "2. Generate API token in Strapi Settings"
-        echo -e "3. Update STRAPI_API_TOKEN in frontend/.env.local"
-        echo -e "4. Restart frontend: pm2 restart skynet-frontend"
+        echo -e "1. Configure Oracle Cloud Security Lists (port 80)"
+        echo -e "2. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
+        echo -e "3. Generate API token in Strapi Settings"
+        echo -e "4. Update STRAPI_API_TOKEN in frontend/.env.local"
+        echo -e "5. Restart frontend: pm2 restart skynet-frontend"
+        
+        echo -e "\n${YELLOW}To migrate existing data:${NC}"
+        echo -e "  ./deploy.sh migrate-db"
+        ;;
+    
+    "migrate-db")
+        migrate_database
         ;;
     
     "full"|*)
@@ -637,15 +786,18 @@ case $MODE in
         echo -e "  API:          ${GREEN}http://${SERVER_IP}/api${NC}"
         
         echo -e "\n${YELLOW}Important:${NC}"
-        echo -e "1. ${RED}Save credentials from credentials.txt${NC}"
-        echo -e "2. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
-        echo -e "3. Generate API token in Strapi Settings"
-        echo -e "4. Update STRAPI_API_TOKEN in frontend/.env.local"
-        echo -e "5. Restart frontend: pm2 restart skynet-frontend"
+        echo -e "1. ${RED}Configure Oracle Cloud Security Lists (port 80)${NC}"
+        echo -e "2. ${RED}Save credentials from credentials.txt${NC}"
+        echo -e "3. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
+        echo -e "4. Generate API token in Strapi Settings"
+        echo -e "5. Update STRAPI_API_TOKEN in frontend/.env.local"
+        echo -e "6. Restart frontend: pm2 restart skynet-frontend"
         
         echo -e "\n${BLUE}Useful Commands:${NC}"
-        echo -e "  View logs:    pm2 logs"
-        echo -e "  Monitor:      pm2 monit"
-        echo -e "  Restart all:  pm2 restart all"
+        echo -e "  View logs:       pm2 logs"
+        echo -e "  Monitor:         pm2 monit"
+        echo -e "  Restart all:     pm2 restart all"
+        echo -e "  Migrate data:    ./deploy.sh migrate-db"
+        echo -e "  Check database:  PGPASSWORD=skynet2024 psql -U skynet -d skynet_cms -c '\\dt'"
         ;;
 esac
