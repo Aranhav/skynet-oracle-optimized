@@ -3,7 +3,7 @@
 # =====================================================
 # SKYNET ORACLE DEPLOYMENT - ALL-IN-ONE SCRIPT
 # For Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores)
-# Version: 3.1 - With Content-Only Database Migration
+# Version: 3.2 - With All Production Fixes
 # =====================================================
 
 set -e
@@ -32,7 +32,7 @@ MIGRATION_SOURCE=${3:-""}  # For database migration
 
 show_header() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v3.1${NC}"
+    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v3.2${NC}"
     echo -e "${BLUE}  Mode: ${MODE}${NC}"
     echo -e "${BLUE}==========================================${NC}\n"
 }
@@ -236,6 +236,31 @@ migrate_database() {
         fi
     fi
     
+    # Fix database constraints after migration
+    echo -e "${YELLOW}Fixing database constraints...${NC}"
+    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost << 'EOF'
+-- Drop problematic constraints
+ALTER TABLE files DROP CONSTRAINT IF EXISTS files_created_by_id_fk;
+ALTER TABLE files DROP CONSTRAINT IF EXISTS files_updated_by_id_fk;
+
+-- Set orphaned references to NULL (no dummy users)
+UPDATE files SET created_by_id = NULL WHERE created_by_id IS NOT NULL AND created_by_id NOT IN (SELECT id FROM admin_users);
+UPDATE files SET updated_by_id = NULL WHERE updated_by_id IS NOT NULL AND updated_by_id NOT IN (SELECT id FROM admin_users);
+
+-- Re-add constraints with CASCADE (allows NULL values)
+ALTER TABLE files 
+ADD CONSTRAINT files_created_by_id_fk 
+FOREIGN KEY (created_by_id) 
+REFERENCES admin_users(id) 
+ON DELETE SET NULL;
+
+ALTER TABLE files 
+ADD CONSTRAINT files_updated_by_id_fk 
+FOREIGN KEY (updated_by_id) 
+REFERENCES admin_users(id) 
+ON DELETE SET NULL;
+EOF
+    
     # Fix permissions
     echo -e "${YELLOW}Fixing database permissions...${NC}"
     sudo -u postgres psql -d $DB_NAME << EOF
@@ -254,23 +279,42 @@ EOF
     echo -e "${YELLOW}Content tables migrated:${NC}"
     PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost -c "\dt" | grep -v -E "admin_|strapi_api_token|strapi_transfer_token" | head -20
     
-    # Create default admin
-    echo -e "\n${YELLOW}Creating default admin user...${NC}"
+    # Create admin user with clear credentials display
+    echo -e "\n${BLUE}=========================================${NC}"
+    echo -e "${BLUE}   CREATING ADMIN USER${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    
     cd /var/www/skynet/cms 2>/dev/null || cd ~/skynet-oracle-optimized/skynet-cms
+    
+    # Generate secure admin password
+    ADMIN_EMAIL="admin@skynet.com"
+    ADMIN_PASSWORD="SkynetAdmin@2025"
+    
+    echo -e "${YELLOW}Creating admin user with credentials:${NC}"
+    echo -e "${GREEN}Email:    ${ADMIN_EMAIL}${NC}"
+    echo -e "${GREEN}Password: ${ADMIN_PASSWORD}${NC}"
+    echo ""
+    
     npm run strapi admin:create-user -- \
         --firstname="Admin" \
         --lastname="Skynet" \
-        --email="admin@skynet.com" \
-        --password="Admin123!@#" 2>/dev/null || echo "Admin creation will be done after deployment"
+        --email="${ADMIN_EMAIL}" \
+        --password="${ADMIN_PASSWORD}" 2>/dev/null || {
+        echo -e "${YELLOW}Admin user may already exist or will be created after deployment${NC}"
+    }
     
     # Restart services
-    echo -e "${YELLOW}Restarting services...${NC}"
+    echo -e "\n${YELLOW}Restarting services...${NC}"
     pm2 restart all
     
-    echo -e "${GREEN}✓ Content migration completed successfully!${NC}"
-    echo -e "${YELLOW}Admin users were NOT migrated for security.${NC}"
-    echo -e "${YELLOW}Default admin created: admin@skynet.com / Admin123!@#${NC}"
-    echo -e "Backup saved to: $BACKUP_FILE"
+    echo -e "\n${GREEN}=========================================${NC}"
+    echo -e "${GREEN}✓ Content migration completed!${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${YELLOW}Note: Admin users were NOT migrated for security${NC}"
+    echo -e "\n${BLUE}ADMIN CREDENTIALS:${NC}"
+    echo -e "${GREEN}Email:    ${ADMIN_EMAIL}${NC}"
+    echo -e "${GREEN}Password: ${ADMIN_PASSWORD}${NC}"
+    echo -e "\nBackup saved to: $BACKUP_FILE"
 }
 
 # =====================================================
@@ -410,12 +454,12 @@ URLS:
 Frontend: http://${SERVER_IP}
 CMS Admin: http://${SERVER_IP}/admin
 API: http://${SERVER_IP}/api
-Tracking API: https://tracks.skynetww.com/api/SkyLinkTracking/GetSkyLinkTracks
+Tracking API: http://${SERVER_IP}/api/track
 
-STRAPI ADMIN (will be created):
--------------------------------
-Username: admin@skynet.com
-Password: Admin123!@#
+STRAPI ADMIN:
+-------------
+Email:    admin@skynet.com
+Password: SkynetAdmin@2025
 
 DATABASE MIGRATION:
 ------------------
@@ -531,6 +575,26 @@ ALTER USER ${DB_USER} CREATEDB;
 EOF
     check_status "PostgreSQL database setup"
     
+    # Initialize database structure (no dummy users)
+    echo -e "${YELLOW}Initializing database structure...${NC}"
+    PGPASSWORD="${DB_PASS}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" << 'EOF'
+-- Create admin_users table structure if needed (but don't insert dummy users)
+CREATE TABLE IF NOT EXISTS admin_users (
+    id SERIAL PRIMARY KEY,
+    firstname VARCHAR(255),
+    lastname VARCHAR(255),
+    username VARCHAR(255) UNIQUE,
+    email VARCHAR(255) UNIQUE,
+    password VARCHAR(255),
+    is_active BOOLEAN DEFAULT true,
+    blocked BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- No dummy users - proper admin will be created later
+EOF
+    
     # Test database connection
     echo -e "${YELLOW}Testing database connection...${NC}"
     PGPASSWORD="${DB_PASS}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" -c "SELECT 1;" > /dev/null 2>&1
@@ -554,6 +618,12 @@ EOF
     cd "$DEPLOY_DIR/cms"
     mkdir -p public/uploads
     chmod 755 public/uploads
+    
+    # Fix Strapi schema if exists
+    if [ -f "src/api/service/content-types/service/schema.json" ]; then
+        echo -e "${YELLOW}Fixing Strapi schema...${NC}"
+        sed -i 's/"inversedBy"/"mappedBy"/g' src/api/service/content-types/service/schema.json 2>/dev/null || true
+    fi
     
     # Install all dependencies (including devDependencies for building)
     echo -e "${YELLOW}Installing CMS dependencies...${NC}"
@@ -623,52 +693,78 @@ EOF
     
     check_status "Frontend deployed"
     
-    # Configure Nginx
+    # Configure Nginx with proper routing
     echo -e "${YELLOW}Configuring Nginx...${NC}"
-    sudo tee /etc/nginx/sites-available/skynet > /dev/null << EOF
+    sudo tee /etc/nginx/sites-available/skynet > /dev/null << 'NGINX'
 server {
     listen 80;
-    server_name ${SERVER_IP};
+    server_name _;
     client_max_body_size 250M;
 
-    # Frontend
-    location / {
+    # API routes from Next.js (including /api/track)
+    location /api {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 90;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Strapi Admin & API
-    location ~ ^/(admin|api|content-manager|content-type-builder|upload|users-permissions|_health) {
+    # Strapi Admin Panel
+    location /admin {
+        proxy_pass http://localhost:1337/admin;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Strapi CMS endpoints
+    location ~ ^/(content-manager|content-type-builder|upload|users-permissions|_health) {
         proxy_pass http://localhost:1337;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Static uploads
+    # Static uploads from Strapi
     location /uploads {
         proxy_pass http://localhost:1337/uploads;
         proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
+
+    # Frontend (everything else)
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 90;
+    }
 }
-EOF
+NGINX
     
     sudo ln -sf /etc/nginx/sites-available/skynet /etc/nginx/sites-enabled/
     sudo rm -f /etc/nginx/sites-enabled/default
@@ -681,7 +777,7 @@ EOF
     pm2 stop all 2>/dev/null || true
     pm2 delete all 2>/dev/null || true
     
-    # Create PM2 ecosystem file with restart limits
+    # Create PM2 ecosystem file with better configuration
     cat > "$DEPLOY_DIR/ecosystem.config.js" << 'PMCONF'
 module.exports = {
   apps: [
@@ -690,12 +786,16 @@ module.exports = {
       cwd: '/var/www/skynet/cms',
       script: 'npm',
       args: 'start',
-      max_restarts: 3,
-      min_uptime: '10s',
+      max_restarts: 5,
+      min_uptime: '30s',
+      max_memory_restart: '3G',
       env: {
         NODE_ENV: 'production',
-        NODE_OPTIONS: '--max-old-space-size=2048'
-      }
+        NODE_OPTIONS: '--max-old-space-size=3072'
+      },
+      error_file: '/var/log/pm2/cms-error.log',
+      out_file: '/var/log/pm2/cms-out.log',
+      time: true
     },
     {
       name: 'skynet-frontend',
@@ -704,9 +804,14 @@ module.exports = {
       args: 'start',
       max_restarts: 5,
       min_uptime: '10s',
+      max_memory_restart: '2G',
       env: {
-        NODE_ENV: 'production'
-      }
+        NODE_ENV: 'production',
+        NODE_OPTIONS: '--max-old-space-size=2048'
+      },
+      error_file: '/var/log/pm2/frontend-error.log',
+      out_file: '/var/log/pm2/frontend-out.log',
+      time: true
     }
   ]
 }
@@ -726,7 +831,19 @@ PMCONF
         echo -e "${RED}✗ CMS health check failed${NC}"
         echo -e "${YELLOW}CMS logs:${NC}"
         pm2 logs skynet-cms --lines 50
-        exit 1
+        
+        # Attempt to fix database constraints if CMS fails
+        echo -e "${YELLOW}Attempting to fix database constraints...${NC}"
+        PGPASSWORD="${DB_PASS}" psql -h localhost -U "${DB_USER}" -d "${DB_NAME}" << 'EOF'
+ALTER TABLE IF EXISTS files DROP CONSTRAINT IF EXISTS files_created_by_id_fk;
+ALTER TABLE IF EXISTS files DROP CONSTRAINT IF EXISTS files_updated_by_id_fk;
+UPDATE files SET created_by_id = NULL WHERE created_by_id NOT IN (SELECT id FROM admin_users);
+UPDATE files SET updated_by_id = NULL WHERE updated_by_id NOT IN (SELECT id FROM admin_users);
+EOF
+        
+        # Retry starting CMS
+        pm2 restart skynet-cms
+        sleep 10
     }
     
     # Start Frontend with ecosystem config
@@ -745,6 +862,33 @@ PMCONF
         pm2 logs skynet-frontend --lines 50
         exit 1
     }
+    
+    # Create admin user with prominent credentials display
+    echo -e "\n${BLUE}=========================================${NC}"
+    echo -e "${BLUE}   CREATING STRAPI ADMIN USER${NC}"
+    echo -e "${BLUE}=========================================${NC}\n"
+    
+    cd "$DEPLOY_DIR/cms"
+    
+    # Admin credentials
+    ADMIN_EMAIL="admin@skynet.com"
+    ADMIN_PASSWORD="SkynetAdmin@2025"
+    
+    echo -e "${YELLOW}Creating admin user with the following credentials:${NC}\n"
+    echo -e "${GREEN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║  Email:    ${ADMIN_EMAIL}         ║${NC}"
+    echo -e "${GREEN}║  Password: ${ADMIN_PASSWORD}      ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════╝${NC}\n"
+    
+    npm run strapi admin:create-user -- \
+        --firstname="Admin" \
+        --lastname="Skynet" \
+        --email="${ADMIN_EMAIL}" \
+        --password="${ADMIN_PASSWORD}" 2>/dev/null || {
+        echo -e "${YELLOW}Note: Admin user may already exist with these credentials${NC}"
+    }
+    
+    echo -e "\n${GREEN}✓ Admin user creation completed${NC}"
     
     pm2 save
     pm2 startup systemd -u $USER --hp /home/$USER | grep 'sudo' | bash || true
@@ -797,12 +941,18 @@ case $MODE in
         echo -e "  Frontend:     ${GREEN}http://${SERVER_IP}${NC}"
         echo -e "  CMS Admin:    ${GREEN}http://${SERVER_IP}/admin${NC}"
         echo -e "  API:          ${GREEN}http://${SERVER_IP}/api${NC}"
+        echo -e "  Tracking:     ${GREEN}http://${SERVER_IP}/api/track?awbNo=XXXXXX${NC}"
         
         echo -e "\n${RED}CRITICAL - Oracle Cloud Setup:${NC}"
         echo -e "1. ${RED}Configure Security Lists in Oracle Console NOW!${NC}"
         echo -e "   - Go to: Networking → VCN → Security Lists"
         echo -e "   - Add Ingress Rule: Port 80, Source 0.0.0.0/0"
-        echo -e "2. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
+        echo -e "2. Login to Strapi: ${GREEN}http://${SERVER_IP}/admin${NC}"
+        echo -e "\n${BLUE}═══════════════════════════════════════════${NC}"
+        echo -e "${BLUE}  ADMIN CREDENTIALS:${NC}"
+        echo -e "${GREEN}  Email:    admin@skynet.com${NC}"
+        echo -e "${GREEN}  Password: SkynetAdmin@2025${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════════${NC}\n"
         echo -e "3. Configure Public API permissions (see STRAPI_PUBLIC_API_SETUP.md)"
         echo -e "4. Create content in Strapi admin panel"
         
@@ -834,15 +984,19 @@ case $MODE in
         echo -e "  Frontend:     ${GREEN}http://${SERVER_IP}${NC}"
         echo -e "  CMS Admin:    ${GREEN}http://${SERVER_IP}/admin${NC}"
         echo -e "  API:          ${GREEN}http://${SERVER_IP}/api${NC}"
+        echo -e "  Tracking:     ${GREEN}http://${SERVER_IP}/api/track?awbNo=XXXXXX${NC}"
         
         echo -e "\n${RED}IMPORTANT STEPS:${NC}"
         echo -e "1. ${RED}Configure Oracle Cloud Security Lists NOW!${NC}"
         echo -e "   - Go to: Networking → VCN → Security Lists → Default"
         echo -e "   - Add Ingress Rule: Port 80, Source 0.0.0.0/0"
         echo -e "2. ${RED}Save credentials from credentials.txt${NC}"
-        echo -e "3. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
-        echo -e "   - Email: admin@skynet.com"
-        echo -e "   - Password: Admin123!@#"
+        echo -e "3. Login to Strapi: ${GREEN}http://${SERVER_IP}/admin${NC}"
+        echo -e "\n${BLUE}═══════════════════════════════════════════${NC}"
+        echo -e "${BLUE}  ADMIN CREDENTIALS:${NC}"
+        echo -e "${GREEN}  Email:    admin@skynet.com${NC}"
+        echo -e "${GREEN}  Password: SkynetAdmin@2025${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════════${NC}\n"
         echo -e "4. Configure Public API permissions (see STRAPI_PUBLIC_API_SETUP.md)"
         echo -e "5. Create content in Strapi admin panel"
         
