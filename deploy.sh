@@ -3,7 +3,7 @@
 # =====================================================
 # SKYNET ORACLE DEPLOYMENT - ALL-IN-ONE SCRIPT
 # For Oracle Cloud Free Tier (24GB RAM, 4 ARM Cores)
-# Version: 3.0 - With Database Migration Support
+# Version: 3.1 - With Content-Only Database Migration
 # =====================================================
 
 set -e
@@ -32,7 +32,7 @@ MIGRATION_SOURCE=${3:-""}  # For database migration
 
 show_header() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v3.0${NC}"
+    echo -e "${BLUE}  SKYNET ORACLE DEPLOYMENT v3.1${NC}"
     echo -e "${BLUE}  Mode: ${MODE}${NC}"
     echo -e "${BLUE}==========================================${NC}\n"
 }
@@ -124,18 +124,42 @@ wait_for_service() {
 }
 
 # =====================================================
-# DATABASE MIGRATION
+# DATABASE MIGRATION (CONTENT ONLY)
 # =====================================================
 
 migrate_database() {
     echo -e "${BLUE}==========================================${NC}"
-    echo -e "${BLUE}  DATABASE MIGRATION${NC}"
+    echo -e "${BLUE}  DATABASE MIGRATION (CONTENT ONLY)${NC}"
     echo -e "${BLUE}==========================================${NC}\n"
+    
+    echo -e "${YELLOW}NOTE: This migration will copy CONTENT only, not admin users.${NC}"
+    echo -e "${YELLOW}You'll need to create new admin users after migration.${NC}\n"
     
     # Database credentials
     DB_NAME="skynet_cms"
     DB_USER="skynet"
     DB_PASS="skynet2024"
+    
+    # Tables to exclude (user/admin related)
+    EXCLUDE_TABLES=(
+        "admin_users"
+        "admin_permissions"
+        "admin_permissions_role_links"
+        "admin_roles"
+        "admin_users_roles_links"
+        "strapi_api_tokens"
+        "strapi_api_token_permissions"
+        "strapi_api_token_permissions_token_links"
+        "strapi_transfer_tokens"
+        "strapi_transfer_token_permissions"
+        "strapi_transfer_token_permissions_token_links"
+    )
+    
+    # Build exclude flags for pg_dump
+    EXCLUDE_FLAGS=""
+    for table in "${EXCLUDE_TABLES[@]}"; do
+        EXCLUDE_FLAGS="$EXCLUDE_FLAGS --exclude-table=public.$table --exclude-table-data=public.$table"
+    done
     
     # Stop services if running
     echo -e "${YELLOW}Stopping services...${NC}"
@@ -166,12 +190,13 @@ migrate_database() {
                 read -sp "Source Password: " SRC_PASS
                 echo ""
                 
-                echo -e "${YELLOW}Migrating from remote PostgreSQL...${NC}"
+                echo -e "${YELLOW}Migrating content from remote PostgreSQL...${NC}"
                 PGPASSWORD=$SRC_PASS pg_dump \
                     -h $SRC_HOST \
                     -p $SRC_PORT \
                     -U $SRC_USER \
                     -d $SRC_DB \
+                    $EXCLUDE_FLAGS \
                     --clean --if-exists --no-owner --no-acl | \
                     PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
                 ;;
@@ -182,26 +207,29 @@ migrate_database() {
                     echo -e "${RED}File not found: $DUMP_FILE${NC}"
                     exit 1
                 fi
-                echo -e "${YELLOW}Importing SQL dump...${NC}"
-                PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost < $DUMP_FILE
+                echo -e "${YELLOW}Importing SQL dump (content only)...${NC}"
+                # Filter out user tables from dump
+                grep -v -E "^(COPY|INSERT INTO) (admin_users|admin_permissions|admin_roles|strapi_api_tokens)" $DUMP_FILE | \
+                    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
                 ;;
             
             3)
                 read -p "Enter database URL: " DB_URL
-                echo -e "${YELLOW}Migrating from database URL...${NC}"
-                pg_dump "$DB_URL" --clean --if-exists --no-owner --no-acl | \
+                echo -e "${YELLOW}Migrating content from database URL...${NC}"
+                pg_dump "$DB_URL" $EXCLUDE_FLAGS --clean --if-exists --no-owner --no-acl | \
                     PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
                 ;;
         esac
     else
         # Non-interactive migration with provided source
         if [[ "$MIGRATION_SOURCE" == postgres://* ]] || [[ "$MIGRATION_SOURCE" == postgresql://* ]]; then
-            echo -e "${YELLOW}Migrating from database URL...${NC}"
-            pg_dump "$MIGRATION_SOURCE" --clean --if-exists --no-owner --no-acl | \
+            echo -e "${YELLOW}Migrating content from database URL...${NC}"
+            pg_dump "$MIGRATION_SOURCE" $EXCLUDE_FLAGS --clean --if-exists --no-owner --no-acl | \
                 PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
         elif [ -f "$MIGRATION_SOURCE" ]; then
-            echo -e "${YELLOW}Importing SQL dump file...${NC}"
-            PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost < $MIGRATION_SOURCE
+            echo -e "${YELLOW}Importing SQL dump file (content only)...${NC}"
+            grep -v -E "^(COPY|INSERT INTO) (admin_users|admin_permissions|admin_roles|strapi_api_tokens)" $MIGRATION_SOURCE | \
+                PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost
         else
             echo -e "${RED}Invalid migration source: $MIGRATION_SOURCE${NC}"
             exit 1
@@ -222,15 +250,26 @@ EOF
     TABLE_COUNT=$(PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';")
     echo -e "${GREEN}✓ Migration complete. Tables in database: $TABLE_COUNT${NC}"
     
-    # Show sample data
-    echo -e "${YELLOW}Sample data:${NC}"
-    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost -c "\dt" | head -20
+    # Show content tables (non-admin)
+    echo -e "${YELLOW}Content tables migrated:${NC}"
+    PGPASSWORD=$DB_PASS psql -U $DB_USER -d $DB_NAME -h localhost -c "\dt" | grep -v -E "admin_|strapi_api_token|strapi_transfer_token" | head -20
+    
+    # Create default admin
+    echo -e "\n${YELLOW}Creating default admin user...${NC}"
+    cd /var/www/skynet/cms 2>/dev/null || cd ~/skynet-oracle-optimized/skynet-cms
+    npm run strapi admin:create-user -- \
+        --firstname="Admin" \
+        --lastname="Skynet" \
+        --email="admin@skynet.com" \
+        --password="Admin123!@#" 2>/dev/null || echo "Admin creation will be done after deployment"
     
     # Restart services
     echo -e "${YELLOW}Restarting services...${NC}"
     pm2 restart all
     
-    echo -e "${GREEN}✓ Database migration completed successfully!${NC}"
+    echo -e "${GREEN}✓ Content migration completed successfully!${NC}"
+    echo -e "${YELLOW}Admin users were NOT migrated for security.${NC}"
+    echo -e "${YELLOW}Default admin created: admin@skynet.com / Admin123!@#${NC}"
     echo -e "Backup saved to: $BACKUP_FILE"
 }
 
@@ -280,13 +319,16 @@ STRAPI_API_TOKEN=
 NEXT_PUBLIC_DEMO_MODE=false
 NODE_ENV=production
 
-# Analytics (Optional)
+# Analytics (Optional - FB Pixel may be blocked by ad blockers)
 NEXT_PUBLIC_GA_ID=
 NEXT_PUBLIC_FB_PIXEL_ID=789190690162066
 
 # Server Configuration
 PORT=3000
 HOSTNAME=0.0.0.0
+
+# External APIs
+NEXT_PUBLIC_TRACKING_API=https://tracks.skynetww.com/api/SkyLinkTracking/GetSkyLinkTracks
 EOF
     
     # Create CMS .env
@@ -369,24 +411,33 @@ URLS:
 Frontend: http://${SERVER_IP}
 CMS Admin: http://${SERVER_IP}/admin
 API: http://${SERVER_IP}/api
+Tracking API: https://tracks.skynetww.com/api/SkyLinkTracking/GetSkyLinkTracks
 
-STRAPI ADMIN (create after deployment):
-----------------------------------------
-Suggested Username: admin@skynet.com
-Suggested Password: Admin123!@#
+STRAPI ADMIN (will be created):
+-------------------------------
+Username: admin@skynet.com
+Password: Admin123!@#
 
 DATABASE MIGRATION:
 ------------------
-To migrate existing data, run:
+To migrate existing content (excludes users):
 ./deploy.sh migrate-db
+
+ORACLE CLOUD SETUP:
+------------------
+IMPORTANT: Configure Security Lists in Oracle Console!
+1. Go to Networking → Virtual Cloud Networks
+2. Click your VCN → Security Lists → Default Security List
+3. Add Ingress Rule: Port 80, Source 0.0.0.0/0
 
 NEXT STEPS:
 -----------
 1. Run deployment: ./deploy.sh deploy-only
-2. Create Strapi admin account
-3. Generate API token in Strapi Settings
-4. Update STRAPI_API_TOKEN in frontend/.env.local
-5. Restart frontend: pm2 restart skynet-frontend
+2. Configure Oracle Security Lists (CRITICAL!)
+3. Create Strapi admin account
+4. Generate API token in Strapi Settings
+5. Update STRAPI_API_TOKEN in frontend/.env.local
+6. Restart frontend: pm2 restart skynet-frontend
 
 =========================================
 EOF
@@ -749,14 +800,16 @@ case $MODE in
         echo -e "  CMS Admin:    ${GREEN}http://${SERVER_IP}/admin${NC}"
         echo -e "  API:          ${GREEN}http://${SERVER_IP}/api${NC}"
         
-        echo -e "\n${YELLOW}Next Steps:${NC}"
-        echo -e "1. Configure Oracle Cloud Security Lists (port 80)"
+        echo -e "\n${RED}CRITICAL - Oracle Cloud Setup:${NC}"
+        echo -e "1. ${RED}Configure Security Lists in Oracle Console NOW!${NC}"
+        echo -e "   - Go to: Networking → VCN → Security Lists"
+        echo -e "   - Add Ingress Rule: Port 80, Source 0.0.0.0/0"
         echo -e "2. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
         echo -e "3. Generate API token in Strapi Settings"
         echo -e "4. Update STRAPI_API_TOKEN in frontend/.env.local"
         echo -e "5. Restart frontend: pm2 restart skynet-frontend"
         
-        echo -e "\n${YELLOW}To migrate existing data:${NC}"
+        echo -e "\n${YELLOW}To migrate existing content:${NC}"
         echo -e "  ./deploy.sh migrate-db"
         ;;
     
@@ -785,10 +838,14 @@ case $MODE in
         echo -e "  CMS Admin:    ${GREEN}http://${SERVER_IP}/admin${NC}"
         echo -e "  API:          ${GREEN}http://${SERVER_IP}/api${NC}"
         
-        echo -e "\n${YELLOW}Important:${NC}"
-        echo -e "1. ${RED}Configure Oracle Cloud Security Lists (port 80)${NC}"
+        echo -e "\n${RED}IMPORTANT STEPS:${NC}"
+        echo -e "1. ${RED}Configure Oracle Cloud Security Lists NOW!${NC}"
+        echo -e "   - Go to: Networking → VCN → Security Lists → Default"
+        echo -e "   - Add Ingress Rule: Port 80, Source 0.0.0.0/0"
         echo -e "2. ${RED}Save credentials from credentials.txt${NC}"
         echo -e "3. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
+        echo -e "   - Email: admin@skynet.com"
+        echo -e "   - Password: Admin123!@#"
         echo -e "4. Generate API token in Strapi Settings"
         echo -e "5. Update STRAPI_API_TOKEN in frontend/.env.local"
         echo -e "6. Restart frontend: pm2 restart skynet-frontend"
@@ -797,7 +854,7 @@ case $MODE in
         echo -e "  View logs:       pm2 logs"
         echo -e "  Monitor:         pm2 monit"
         echo -e "  Restart all:     pm2 restart all"
-        echo -e "  Migrate data:    ./deploy.sh migrate-db"
+        echo -e "  Migrate content: ./deploy.sh migrate-db"
         echo -e "  Check database:  PGPASSWORD=skynet2024 psql -U skynet -d skynet_cms -c '\\dt'"
         ;;
 esac
