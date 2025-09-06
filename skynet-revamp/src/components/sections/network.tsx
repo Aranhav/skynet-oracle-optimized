@@ -49,12 +49,12 @@ export default function NetworkSection() {
               viewport={{ once: true }}
               className="text-center"
             >
-              <div className="p-4 md:p-10 bg-gradient-to-b from-gray-50 to-white rounded-3xl border border-gray-200 transition-all duration-500 dark:from-gray-900 dark:to-gray-950 dark:border-gray-800 hover:shadow-lg group">
+              <div className="h-full p-4 md:p-10 bg-gradient-to-b from-gray-50 to-white rounded-3xl border border-gray-200 transition-all duration-500 dark:from-gray-900 dark:to-gray-950 dark:border-gray-800 hover:shadow-lg group flex flex-col items-center justify-center">
                 <div className="flex justify-center items-center mx-auto mb-6 w-16 h-16 rounded-2xl transition-transform duration-300 bg-primary/10 group-hover:scale-110">
                   <stat.icon className="w-8 h-8 text-primary" strokeWidth={1.5} />
                 </div>
                 <div className="mb-3 text-3xl font-light md:text-4xl text-foreground">{stat.number}</div>
-                <div className="text-sm font-light tracking-wide uppercase text-muted-foreground">{stat.label}</div>
+                <div className="text-sm font-light tracking-wide uppercase text-muted-foreground text-center min-h-[2.5rem] flex items-center">{stat.label}</div>
               </div>
             </motion.div>
           ))}
