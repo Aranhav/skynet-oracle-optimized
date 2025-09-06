@@ -308,12 +308,11 @@ setup_environment() {
     # Create Frontend .env.local
     echo -e "\n${YELLOW}Creating Frontend environment file...${NC}"
     cat > "$FRONTEND_DIR/.env.local" << EOF
-# API Configuration
+# API Configuration (Public endpoints - no token needed)
 NEXT_PUBLIC_API_URL=http://${SERVER_IP}:1337
 NEXT_PUBLIC_SITE_URL=http://${SERVER_IP}
 NEXT_PUBLIC_STRAPI_URL=http://${SERVER_IP}:1337
 STRAPI_API_URL=http://localhost:1337
-STRAPI_API_TOKEN=
 
 # Environment
 NEXT_PUBLIC_DEMO_MODE=false
@@ -435,9 +434,8 @@ NEXT STEPS:
 1. Run deployment: ./deploy.sh deploy-only
 2. Configure Oracle Security Lists (CRITICAL!)
 3. Create Strapi admin account
-4. Generate API token in Strapi Settings
-5. Update STRAPI_API_TOKEN in frontend/.env.local
-6. Restart frontend: pm2 restart skynet-frontend
+4. Configure Public API permissions in Strapi (see STRAPI_PUBLIC_API_SETUP.md)
+5. Create content in Strapi admin panel
 
 =========================================
 EOF
@@ -805,9 +803,8 @@ case $MODE in
         echo -e "   - Go to: Networking → VCN → Security Lists"
         echo -e "   - Add Ingress Rule: Port 80, Source 0.0.0.0/0"
         echo -e "2. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
-        echo -e "3. Generate API token in Strapi Settings"
-        echo -e "4. Update STRAPI_API_TOKEN in frontend/.env.local"
-        echo -e "5. Restart frontend: pm2 restart skynet-frontend"
+        echo -e "3. Configure Public API permissions (see STRAPI_PUBLIC_API_SETUP.md)"
+        echo -e "4. Create content in Strapi admin panel"
         
         echo -e "\n${YELLOW}To migrate existing content:${NC}"
         echo -e "  ./deploy.sh migrate-db"
@@ -846,9 +843,8 @@ case $MODE in
         echo -e "3. Create Strapi admin: ${GREEN}http://${SERVER_IP}/admin${NC}"
         echo -e "   - Email: admin@skynet.com"
         echo -e "   - Password: Admin123!@#"
-        echo -e "4. Generate API token in Strapi Settings"
-        echo -e "5. Update STRAPI_API_TOKEN in frontend/.env.local"
-        echo -e "6. Restart frontend: pm2 restart skynet-frontend"
+        echo -e "4. Configure Public API permissions (see STRAPI_PUBLIC_API_SETUP.md)"
+        echo -e "5. Create content in Strapi admin panel"
         
         echo -e "\n${BLUE}Useful Commands:${NC}"
         echo -e "  View logs:       pm2 logs"

@@ -15,13 +15,10 @@ interface FetchOptions extends RequestInit {
  */
 export async function fetchAPI(path: string, urlParamsObject: Record<string, any> = {}, options: FetchOptions = {}) {
   try {
-    // Merge default options
+    // Merge default options (No API token needed - public endpoints)
     const mergedOptions: RequestInit = {
       headers: {
         "Content-Type": "application/json",
-        ...(process.env.STRAPI_API_TOKEN && {
-          Authorization: `Bearer ${process.env.STRAPI_API_TOKEN}`,
-        }),
         ...options.headers,
       },
       ...options,
