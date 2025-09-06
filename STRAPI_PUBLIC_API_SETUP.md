@@ -1,156 +1,119 @@
-# Strapi Public API Configuration Guide
+# Strapi Public API Setup Guide
 
-## Overview
-This guide configures Strapi to allow public read access to content without requiring API tokens.
+## Quick Setup: Make All APIs Public (No Authentication Required)
 
-## Step 1: Access Strapi Admin Panel
+### Step 1: Access Strapi Admin Panel
+1. Go to: http://152.67.4.226/admin
+2. Login with credentials:
+   - Email: `admin@skynet.com`
+   - Password: `SkynetAdmin@2025`
 
-1. Open: http://152.67.4.226/admin
-2. Login with:
-   - Email: admin@skynet.com
-   - Password: Admin123!@#
-
-## Step 2: Configure Public Permissions
-
-### Navigate to Settings
-1. Click **Settings** in the left sidebar
+### Step 2: Configure Public Role Permissions
+1. Navigate to: **Settings** (gear icon in sidebar)
 2. Under **USERS & PERMISSIONS PLUGIN**, click **Roles**
 3. Click on **Public** role
 
-### Enable Read Permissions for Content Types
+### Step 3: Enable API Access for Each Content Type
 
-Enable the following permissions for PUBLIC role:
+You need to enable the following permissions for each content type:
 
-#### 1. Services
-- ✅ find (Get all services)
-- ✅ findOne (Get single service)
+#### Blog Posts (blog-post)
+- ✅ find (View list of blog posts)
+- ✅ findOne (View single blog post)
 
-#### 2. Blogs
-- ✅ find (Get all blogs)
-- ✅ findOne (Get single blog)
+#### Services (service)
+- ✅ find
+- ✅ findOne
 
-#### 3. Careers
-- ✅ find (Get all careers)
-- ✅ findOne (Get single career)
+#### Office Locations (office-location)
+- ✅ find
+- ✅ findOne
 
-#### 4. Office Locations
-- ✅ find (Get all locations)
-- ✅ findOne (Get single location)
+#### Global Settings (global-setting)
+- ✅ find
+- ✅ findOne
 
-#### 5. Partners
-- ✅ find (Get all partners)
-- ✅ findOne (Get single partner)
+#### Testimonials (testimonial)
+- ✅ find
+- ✅ findOne
 
-#### 6. Testimonials
-- ✅ find (Get all testimonials)
-- ✅ findOne (Get single testimonial)
+#### FAQs (faq)
+- ✅ find
+- ✅ findOne
 
-#### 7. FAQs
-- ✅ find (Get all FAQs)
-- ✅ findOne (Get single FAQ)
+#### Partners (partner)
+- ✅ find
+- ✅ findOne
 
-#### 8. Global Settings
-- ✅ find (Get global settings)
-
-#### 9. Rates
-- ✅ find (Get all rates)
-- ✅ findOne (Get single rate)
-
-#### 10. Service Categories
-- ✅ find (Get all categories)
-- ✅ findOne (Get single category)
-
-#### 11. Upload Plugin
-- ✅ find (View uploaded files)
-
-### DO NOT Enable for Public
-- ❌ Admin functions
-- ❌ Create operations
-- ❌ Update operations
-- ❌ Delete operations
-- ❌ User management
-
-## Step 3: Save Configuration
-
+### Step 4: Save Changes
 1. Click **Save** button at the top right
 2. Wait for "Saved" confirmation
 
-## Step 4: Test Public Access
+### Step 5: Test API Access
 
-Test the API without authentication:
+Test that APIs are now publicly accessible:
 
 ```bash
-# Test services endpoint
+# Test blog posts
+curl http://152.67.4.226/api/blog-posts
+
+# Test services
 curl http://152.67.4.226/api/services
-
-# Test blogs endpoint
-curl http://152.67.4.226/api/blogs
-
-# Test office locations
-curl http://152.67.4.226/api/office-locations
 
 # Test global settings
 curl http://152.67.4.226/api/global-settings
 ```
 
-## Step 5: Frontend Configuration
-
-The frontend is already configured to work without API tokens. No changes needed.
-
-## Security Notes
-
-1. **Public = Read Only**: Only enable read operations for public role
-2. **Admin Protection**: Never enable admin operations for public
-3. **Sensitive Data**: Don't expose user data or internal configurations
-4. **Rate Limiting**: Consider adding rate limiting in production
-
 ## Troubleshooting
 
-### Issue: API returns 403 Forbidden
-- Check that permissions are saved in Strapi
-- Verify the endpoint name matches the content type
-- Clear browser cache
+### If APIs still return 403 Forbidden:
+1. Check that you saved the permissions
+2. Restart Strapi: `pm2 restart skynet-cms`
+3. Clear browser cache
 
-### Issue: API returns 404 Not Found
-- Check that content type exists in Strapi
-- Verify the API route is correct
-- Ensure Strapi is running: `pm2 status`
+### If APIs return 404 Not Found:
+1. Check Nginx is running: `sudo systemctl status nginx`
+2. Check Strapi is running: `pm2 status skynet-cms`
+3. Run the fix script: `sudo ./fix-strapi-api-routing.sh`
 
-### Issue: No data returned
-- Create sample content in Strapi admin
-- Check that content is published (not draft)
-- Verify populate parameters in API calls
+### If APIs return empty data:
+1. Make sure content exists in Strapi
+2. Check that content is published (not draft)
+3. Create sample content in Strapi admin panel
 
-## Quick Permission Setup Script
+## Creating Sample Content
 
-Run this on Ubuntu server after creating admin:
+### Create a Blog Post:
+1. Go to **Content Manager** → **Blog Posts**
+2. Click **Create new entry**
+3. Fill in:
+   - Title
+   - Slug (URL-friendly version)
+   - Content
+   - Featured Image (optional)
+4. Click **Save** then **Publish**
 
-```bash
-# Check if Strapi is accessible
-curl -I http://localhost:1337/api/services
+### Create Services:
+1. Go to **Content Manager** → **Services**
+2. Create entries for each service
+3. Publish them
 
-# If returns 403, permissions need to be configured in admin panel
-# If returns 200 or 404, permissions are already public
-```
+### Create Global Settings:
+1. Go to **Content Manager** → **Global Settings**
+2. Add company information
+3. Upload logo/favicon
+4. Save and publish
 
-## Content Type API Endpoints
+## Security Note
 
-Once configured, these endpoints will be publicly accessible:
+Making APIs public means anyone can read your content without authentication. This is fine for:
+- Blog posts
+- Services information
+- Company details
+- FAQs
 
-- **Services**: `/api/services`
-- **Blogs**: `/api/blogs`  
-- **Careers**: `/api/careers`
-- **Office Locations**: `/api/office-locations`
-- **Partners**: `/api/partners`
-- **Testimonials**: `/api/testimonials`
-- **FAQs**: `/api/faqs`
-- **Global Settings**: `/api/global-settings`
-- **Rates**: `/api/rates`
-- **Service Categories**: `/api/service-categories`
-
-## Next Steps
-
-1. Create content in Strapi admin panel
-2. Test API endpoints
-3. Verify frontend displays content
-4. Configure caching if needed
+But never make public:
+- User data
+- Admin functions
+- Create/Update/Delete operations
+- Sensitive business data
